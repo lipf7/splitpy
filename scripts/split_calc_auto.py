@@ -1226,22 +1226,22 @@ def main(args=None):
                     # Initialize diagnostic figure and plot it
                     if args.diagplot:
                         #if (split.null is False) and (split.quality in ["Good", "Fair"]):
-                        #if (split.null in ["False", "True"]) and (split.quality in ["Good", "Fair", "Poor"]):
-                        dplot = DiagPlot(split)
-                        dplot.plot_diagnostic(t1=best["t1"], t2=best["t2"], f1=best["fmin"], f2=best["fmax"])
-                        fig = plt.figure(dplot.axes[0].number)
-                        # 仅在非Null且质量为good或fair时保存图片，否则跳过
-                        save_root = Path(args.diagplot) / sta.station
-                        save_root.mkdir(parents=True, exist_ok=True)
-                        event_time_str = split.meta.time.strftime("%Y%m%d_%H%M%S")
-                        save_path = save_root / f"{event_time_str}_{sta.station}.png"
-                        # ---------------------------------------------
-                        # Annotate selected filter band on figure
-                        # ---------------------------------------------
-                        fig.savefig(save_path, dpi=300)
-                        plt.close(fig)
-                    else:
-                        continue
+                        if (split.null in [False, True]) and (split.quality in ["Good", "Fair", "Poor"]):
+                            dplot = DiagPlot(split)
+                            dplot.plot_diagnostic(t1=best["t1"], t2=best["t2"], f1=best["fmin"], f2=best["fmax"])
+                            fig = plt.figure(dplot.axes[0].number)
+                            # 仅在非Null且质量为good或fair时保存图片，否则跳过
+                            save_root = Path(args.diagplot) / sta.station
+                            save_root.mkdir(parents=True, exist_ok=True)
+                            event_time_str = split.meta.time.strftime("%Y%m%d_%H%M%S")
+                            save_path = save_root / f"{event_time_str}_{sta.station}.png"
+                            # ---------------------------------------------
+                            # Annotate selected filter band on figure
+                            # ---------------------------------------------
+                            fig.savefig(save_path, dpi=300)
+                            plt.close(fig)
+                        else:
+                            continue
 
 
 if __name__ == "__main__":
