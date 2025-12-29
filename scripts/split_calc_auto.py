@@ -1225,7 +1225,8 @@ def main(args=None):
 
                     # Initialize diagnostic figure and plot it
                     if args.diagplot:
-                        if (split.null is False) and (split.quality in ["Good", "Fair"]):
+                        #if (split.null is False) and (split.quality in ["Good", "Fair"]):
+                        if (split.null in ["False", "True"]) and (split.quality in ["Good", "Fair", "Poor"]):
                             dplot = DiagPlot(split)
                             dplot.plot_diagnostic(t1=best["t1"], t2=best["t2"], f1=best["fmin"], f2=best["fmax"])
                             fig = plt.figure(dplot.axes[0].number)
