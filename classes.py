@@ -663,20 +663,25 @@ class Split(object):
             Object containing results of Silver-Chan method
 
         """
+        
+        if t1 is None or t2 is None:
+            t1 = self.meta.time + self.meta.ttime - 5.
+            t2 = self.meta.time + self.meta.ttime + 25.
+
+        if fmin is None or fmax is None:
+            fmin = 0.02
+            fmax = 0.5
+
         # 记录分析窗口
         self.analysis_cfg["t1"] = t1
         self.analysis_cfg["t2"] = t2
         self.analysis_cfg["fmin"] = fmin
         self.analysis_cfg["fmax"] = fmax
-
-        if t1 is None and t2 is None:
-            t1 = self.meta.time + self.meta.ttime - 5.
-            t2 = self.meta.time + self.meta.ttime + 25.
-
+        
         # Define signal 
         # SNR 阶段只“试滤波”,分裂阶段“正式滤波一次”
-        trQ = self.dataLQT.select(component='Q')[0].copy()
-        trT = self.dataLQT.select(component='T')[0].copy()
+        trQ = self.dataLQT.select(component='Q')[0].copy().taper(max_percentage=0.05)
+        trT = self.dataLQT.select(component='T')[0].copy().taper(max_percentage=0.05)
 
         if apply_filter and fmin and fmax:
             trQ.filter("bandpass", freqmin=fmin, freqmax=fmax,
