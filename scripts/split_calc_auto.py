@@ -1020,7 +1020,7 @@ def main(args=None):
 
                 if args.recalc:
                     if np.sum([file.exists() for file in
-                               [ZNEfile, metafile, stafile]]) < 3:
+                                [ZNEfile, metafile, stafile]]) < 3:
                         continue
                     sta = pickle.load(open(stafile, "rb"))
                     split = Split(sta)
@@ -1070,7 +1070,7 @@ def main(args=None):
                     if args.verb:
                         print(
                             f"* Selected filter band: "
-                            f"{best_band[0]:.2f}-{best_band[1]:.2f} Hz "
+                            f"{best["fmin"]:.2f}-{best["fmax"]:.2f} Hz "
                             f"(SNRQ = {best["snr"]:.2f})"
                         )
                     # Save LQT Traces

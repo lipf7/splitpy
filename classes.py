@@ -608,10 +608,10 @@ class Split(object):
         trSigT = self.dataLQT.select(component='T')[0].copy()
         trNzeT = self.dataLQT.select(component='T')[0].copy()
 
-        trSigQ.detrend().taper(max_percentage=0.05)
-        trNzeQ.detrend().taper(max_percentage=0.05)
-        trSigT.detrend().taper(max_percentage=0.05)
-        trNzeT.detrend().taper(max_percentage=0.05)
+        trSigQ.detrend(type='linear').taper(max_percentage=0.05)
+        trNzeQ.detrend(type='linear').taper(max_percentage=0.05)
+        trSigT.detrend(type='linear').taper(max_percentage=0.05)
+        trNzeT.detrend(type='linear').taper(max_percentage=0.05)
 
         # Filter between 0.1 and 1.0 (dominant P wave frequencies)
         trSigQ.filter('bandpass', freqmin=fmin, freqmax=fmax,
@@ -680,8 +680,8 @@ class Split(object):
         
         # Define signal 
         # SNR 阶段只“试滤波”,分裂阶段“正式滤波一次”
-        trQ = self.dataLQT.select(component='Q')[0].copy().taper(max_percentage=0.05)
-        trT = self.dataLQT.select(component='T')[0].copy().taper(max_percentage=0.05)
+        trQ = self.dataLQT.select(component='Q')[0].copy().detrend(type='linear').taper(max_percentage=0.05)
+        trT = self.dataLQT.select(component='T')[0].copy().detrend(type='linear').taper(max_percentage=0.05)
 
         if apply_filter and fmin and fmax:
             trQ.filter("bandpass", freqmin=fmin, freqmax=fmax,
@@ -1447,7 +1447,7 @@ class DiagPlot(object):
                        rc_trQ_c, rc_trT_c, rc_trFast, rc_trSlow,
                        sc_trQ_c, sc_trT_c, sc_trFast, sc_trSlow):
                 try:
-                    tr.filter('bandpass', freqmin=f1, freqmax=f2,
+                    tr.detrend(type='linear').taper(max_percentage=0.05).filter('bandpass', freqmin=f1, freqmax=f2,
                               corners=2, zerophase=True)
                 except Exception:
                     pass
