@@ -49,9 +49,9 @@ class SplitGUI(tk.Tk):
         self.groups = {
 
             "Station & Data": [
-                Param("Station DB", None, browse="file"),
-                Param("Event data dir", "--event-datadir", browse="dir"),
-                Param("Local event CSV", "--local-event", browse="file"),
+                Param("Station .pkl", None, browse="file"),
+                Param("SDS data dir", "--event-datadir", browse="dir"),
+                Param("Local event list (.CSV)", "--local-event", browse="file"),
                 Param("Station keys", "--keys"),
                 Param("Data format", "--data-format", "SAC",
                       choices=["SAC", "MSEED"]),
