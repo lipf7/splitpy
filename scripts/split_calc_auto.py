@@ -870,6 +870,10 @@ def main(args=None):
                         lon = float(row[2])
                         dep = float(row[3])
                         mag = float(row[4])
+                        if args.minmag and mag < args.minmag:
+                            continue
+                        if args.maxmag and mag > args.maxmag:
+                            continue
                         ev = Event()
                         origin = Origin(time=otime, latitude=lat, longitude=lon, depth=dep)
                         magnitude = Magnitude(mag=mag)
@@ -904,6 +908,7 @@ def main(args=None):
                         continue
                     if args.endT and evtime > args.endT:
                         continue
+                        #增加震级筛选
                     available_timekeys.add(name)
         except Exception:
             available_timekeys = set()
