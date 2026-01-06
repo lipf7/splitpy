@@ -654,6 +654,16 @@ def load_local_event_data(split, event_dir, station_info, data_format="SAC",
 from obspy.taup import TauPyModel
 
 def get_adaptive_sks_window(split):
+    """
+    get_adaptive_sks_window 的 说明
+    
+    根据SKS与S波的时间差，动态调整分析窗口大小。
+    
+    :param split: 
+    输入split对象，包含事件和台站的元数据。
+    Returns:
+    best_t1, best_t2
+    """
     model = TauPyModel(model="iasp91")
 
     arrivals = model.get_travel_times(
@@ -700,6 +710,15 @@ def search_best_window_and_filter(
     step=1.0,
     snr_comp="R"
 ):
+    """
+    search_best_window_and_filter 的 Docstring
+    
+    在给定的时间窗口和滤波器组下，搜索最佳的SNR值。
+    
+    :param split: Split对象，包含数据和元数据
+    
+    :return: best字典，包含最佳SNR及其对应的参数,[snr, t1, t2, fmin, fmax]
+    """
     best = {
         "snr": -1e9,
         "t1": None,
