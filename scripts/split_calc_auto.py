@@ -878,6 +878,7 @@ def main(args=None):
         # Get catalogue using deployment start and end
         if args.localevent is not None:
             # 从本地CSV加载事件
+            #去除不在震中距范围内的事件
             cat = Catalog()
             with open(args.localevent, 'r') as f:
                 reader = csv.reader(f)
