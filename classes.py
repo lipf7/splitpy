@@ -1368,6 +1368,36 @@ class DiagPlot(object):
             t1 = self.split.meta.time + self.split.meta.ttime - 5.
             t2 = self.split.meta.time + self.split.meta.ttime + 25.
 
+        def rotate_2d_data(x_data, y_data, angle_deg):
+            """
+            旋转二维数据点
+            Parameters
+            ----------
+            x_data, y_data : array or float
+                数据点坐标
+            angle_deg : float
+                旋转角度（度）
+            Returns
+            -------
+            x_rot, y_rot : rotated coordinates
+            """
+            angle_rad = angle_deg * np.pi / 180.
+            cos_a = np.cos(angle_rad)
+            sin_a = np.sin(angle_rad)
+            x_rot = x_data * cos_a - y_data * sin_a
+            y_rot = x_data * sin_a + y_data * cos_a
+            return x_rot, y_rot
+
+        def normalize_angle(angle):
+            """
+            将角度归一化到-180到180范围内
+            """
+            while angle > 180:
+                angle -= 360
+            while angle < -180:
+                angle += 360
+            return angle
+
         def rot3D(inc, baz):
             """
             Defines rotation matrix from incidence and back-azimuth angles
@@ -1542,19 +1572,31 @@ class DiagPlot(object):
         self.axes[4].plot(taxis, rc_trQ_c.data/mmax, 'b--')
         self.axes[4].plot(taxis, rc_trT_c.data/mmax, 'r')
 
-        # Particle motion
-        self.axes[5].plot(trE_tmp.data/mmax, trN_tmp.data/mmax, 'b--')
-        self.axes[5].plot(E_RC/mmax, N_RC/mmax, 'r')
+        # Particle motion - 旋转粒子轨迹，使径向与快波方向重合
+        # 旋转角度为 phi - baz - 180，归一化到-180到180
+        rc_rotation_angle = normalize_angle(self.split.RC_res.phi - self.split.meta.baz - 180.)
+        trE_tmp_rot, trN_tmp_rot = rotate_2d_data(trE_tmp.data/mmax, trN_tmp.data/mmax, rc_rotation_angle)
+        E_RC_rot, N_RC_rot = rotate_2d_data(E_RC/mmax, N_RC/mmax, rc_rotation_angle)
+        
+        # 黑线绘制快波方向phi（在旋转后的坐标系中）
+        # 旋转后径向与快波方向重合，快波方向应该沿y轴正方向（90度）
+        phi_rad = self.split.RC_res.phi * np.pi / 180.
+        x_phi_pos = np.sin(phi_rad)
+        y_phi_pos = np.cos(phi_rad)
+        x_phi_neg = -x_phi_pos
+        y_phi_neg = -y_phi_pos
+        
+        # 应用旋转到快波方向线
+        x_phi_pos_rot, y_phi_pos_rot = rotate_2d_data(x_phi_pos, y_phi_pos, rc_rotation_angle)
+        x_phi_neg_rot, y_phi_neg_rot = rotate_2d_data(x_phi_neg, y_phi_neg, rc_rotation_angle)
+        
+        self.axes[5].plot(trE_tmp_rot, trN_tmp_rot, 'b--')
+        self.axes[5].plot(E_RC_rot, N_RC_rot, 'r')
         self.axes[5].text(-1, 1, 'Raw', verticalalignment='top',
                           horizontalalignment='left', color='b')
         self.axes[5].text(-1, -1, 'RC', verticalalignment='bottom',
                           horizontalalignment='left', color='r')
-        ang = 360. - self.split.meta.baz
-        x1pos = -np.sin(ang*np.pi/180.)
-        y1pos = np.cos(ang*np.pi/180.)
-        x2pos = -x1pos
-        y2pos = -y1pos
-        self.axes[5].plot([x1pos, x2pos], [y1pos, y2pos], 'k:', lw=2)
+        self.axes[5].plot([x_phi_pos_rot, x_phi_neg_rot], [y_phi_pos_rot, y_phi_neg_rot], 'k:', lw=2)
 
         # Map of energy
         plt.sca(self.axes[6])
@@ -1605,10 +1647,26 @@ class DiagPlot(object):
         self.axes[8].plot(taxis, sc_trQ_c.data/mmax, 'b--')
         self.axes[8].plot(taxis, sc_trT_c.data/mmax, 'r')
 
-        # Particle motion
-        self.axes[9].plot(trE_tmp.data/mmax, trN_tmp.data/mmax, 'b--')
-        self.axes[9].plot(E_SC/mmax, N_SC/mmax, 'r')
-        self.axes[9].plot([x1pos, x2pos], [y1pos, y2pos], 'k:', lw=2)
+        # Particle motion - 旋转粒子轨迹，使径向与快波方向重合
+        # 旋转角度为 phi - baz - 180，归一化到-180到180
+        sc_rotation_angle = normalize_angle(self.split.SC_res.phi - self.split.meta.baz - 180.)
+        trE_tmp_rot_sc, trN_tmp_rot_sc = rotate_2d_data(trE_tmp.data/mmax, trN_tmp.data/mmax, sc_rotation_angle)
+        E_SC_rot, N_SC_rot = rotate_2d_data(E_SC/mmax, N_SC/mmax, sc_rotation_angle)
+        
+        # 黑线绘制快波方向phi（在旋转后的坐标系中）
+        phi_rad_sc = self.split.SC_res.phi * np.pi / 180.
+        x_phi_pos_sc = np.sin(phi_rad_sc)
+        y_phi_pos_sc = np.cos(phi_rad_sc)
+        x_phi_neg_sc = -x_phi_pos_sc
+        y_phi_neg_sc = -y_phi_pos_sc
+        
+        # 应用旋转到快波方向线
+        x_phi_pos_rot_sc, y_phi_pos_rot_sc = rotate_2d_data(x_phi_pos_sc, y_phi_pos_sc, sc_rotation_angle)
+        x_phi_neg_rot_sc, y_phi_neg_rot_sc = rotate_2d_data(x_phi_neg_sc, y_phi_neg_sc, sc_rotation_angle)
+        
+        self.axes[9].plot(trE_tmp_rot_sc, trN_tmp_rot_sc, 'b--')
+        self.axes[9].plot(E_SC_rot, N_SC_rot, 'r')
+        self.axes[9].plot([x_phi_pos_rot_sc, x_phi_neg_rot_sc], [y_phi_pos_rot_sc, y_phi_neg_rot_sc], 'k:', lw=2)
         self.axes[9].text(-1, 1, 'Raw', verticalalignment='top',
                           horizontalalignment='left', color='b')
         self.axes[9].text(-1, -1, 'SC', verticalalignment='bottom',
