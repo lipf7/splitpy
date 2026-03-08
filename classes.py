@@ -769,7 +769,7 @@ class Split(object):
                     "  dPhi Pass:  {0:.2f} outside 22. < X < 68.".format(dphi))
 
         # Check snr on tangential component and Check error on `phi_min` estimate
-        if self.meta.snrt < snrTlim and 22. < dphi < 68.:
+        if self.meta.snrt < snrTlim or dphi > 28.:
             self.null = True
 
         # Check error on `phi_min` estimate
