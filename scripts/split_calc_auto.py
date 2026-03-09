@@ -785,7 +785,7 @@ def search_best_window_and_filter(
             Q = utils.null_quality_factor(
                 split.SC_res.phi, split.RC_res.phi,
                 split.SC_res.dtt, split.RC_res.dtt,
-                snrTlim=snrTlim)
+                snrT=snrTlim)
 
             if abs(Q) > abs(best["Q"]):
                 best.update(
@@ -1287,7 +1287,7 @@ def main(args=None):
                         qval = utils.null_quality_factor(
                             split.SC_res.phi, split.RC_res.phi,
                             split.SC_res.dtt, split.RC_res.dtt,
-                            snrTlim=snrTlim)
+                            snrT=args.snrTlim)
                     except Exception:
                         qval = None
                     split.meta.quality_factor = qval
