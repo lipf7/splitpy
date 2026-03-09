@@ -757,7 +757,13 @@ def search_best_window_and_filter(
                     fmin=fmin,
                     fmax=fmax,
                 )
-            print(f"  Shift {ishift:+.1f} sec, Filter {fmin:.2f}-{fmax:.2f} Hz: Qbest={Q:.3f}, SNR({snr_comp})={snr:.1f} dB")
+            # Safely handle None and -inf for real-time printing
+            curr_best_q = best['Q'] if best['Q'] != -np.inf else np.nan
+            curr_best_snr = best['snr'] if best['snr'] is not None else np.nan
+            curr_best_fmin = best['fmin'] if best['fmin'] is not None else np.nan
+            curr_best_fmax = best['fmax'] if best['fmax'] is not None else np.nan
+            # Print current iteration metrics alongside the best metrics found so far
+            print(f"  Shift {ishift:+.1f}s, Filter {fmin:.2f}-{fmax:.2f}Hz | Current: Q={Q:.3f}| BEST SO FAR: Q={curr_best_q:.3f}, Filter={curr_best_fmin:.2f}-{curr_best_fmax:.2f}Hz")
 
     return best
 
@@ -1149,8 +1155,14 @@ def main(args=None):
                         snrTlim=args.snrTlim,
                         snr_comp="R"  # only for logging
                     )
+                    # Safely extract values, replacing explicit None with np.nan for float formatting
+                    best_q = best.get('Q') if best.get('Q') not in (None, -np.inf) else np.nan
+                    best_snr = best.get('snr') if best.get('snr') is not None else np.nan
+                    best_fmin = best.get('fmin') if best.get('fmin') is not None else np.nan
+                    best_fmax = best.get('fmax') if best.get('fmax') is not None else np.nan
+
                     print("*"*50)
-                    print(f"Best Q: {best.get('Q', np.nan):.2f}, SNRR: {best.get('snr', np.nan):.2f} dB, Filter: {best.get('fmin', np.nan):.2f}-{best.get('fmax', np.nan):.2f} Hz")
+                    print(f"Best Q: {best_q:.2f}, SNRR: {best_snr:.2f} dB, Filter: {best_fmin:.2f}-{best_fmax:.2f} Hz")
                     
                     if best is None or best.get("fmin") is None or best.get("fmax") is None:
                         print("WARNING: No valid filter band selected for this event/station.")
