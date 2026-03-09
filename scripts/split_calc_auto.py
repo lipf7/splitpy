@@ -138,7 +138,7 @@ def get_arguments_calc_auto(argv=None):
         dest="msnr",
         default=4.,
         help="Minimum SNR value calculated on the radial (Q) component "+
-        "to proceed with analysis (dB). [Default 5.]")
+        "to proceed with analysis. [Default 5.]")
     ConstGroup.add_argument(
         "--window",
         action="store",
@@ -758,7 +758,7 @@ def search_best_window_and_filter(
             curr_best_snr = best['snr'] if best['snr'] is not None else np.nan
             curr_best_fmin = best['fmin'] if best['fmin'] is not None else np.nan
             curr_best_fmax = best['fmax'] if best['fmax'] is not None else np.nan
-            print(f"  Shift {ishift:+.1f}s, Filter {fmin:.2f}-{fmax:.2f}Hz | Current: Q={Q:.3f}, SNR={snr:.1f}dB | BEST SO FAR: Q={curr_best_q:.3f}, Filter={curr_best_fmin:.2f}-{curr_best_fmax:.2f}Hz, SNR={curr_best_snr:.1f}dB")
+            print(f"  Shift {ishift:+.1f}s, Filter {fmin:.2f}-{fmax:.2f}Hz | Current: Q={Q:.3f}, SNR={snr:.1f} | BEST SO FAR: Q={curr_best_q:.3f}, Filter={curr_best_fmin:.2f}-{curr_best_fmax:.2f}Hz, SNR={curr_best_snr:.1f}")
 
     return best
 
@@ -1157,7 +1157,7 @@ def main(args=None):
                     best_fmax = best.get('fmax') if best.get('fmax') is not None else np.nan
 
                     print("*"*50)
-                    print(f"Best Q: {best_q:.2f}, SNRR: {best_snr:.2f} dB, Filter: {best_fmin:.2f}-{best_fmax:.2f} Hz")
+                    print(f"Best Q: {best_q:.2f}, SNRR: {best_snr:.2f}, Filter: {best_fmin:.2f}-{best_fmax:.2f} Hz")
                     
                     if best is None or best.get("fmin") is None or best.get("fmax") is None:
                         print("WARNING: No valid filter band selected for this event/station.")
