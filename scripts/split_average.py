@@ -315,6 +315,7 @@ def main(args=None):
         Qual = []
         Null = []
         filter_band = []   # <<< 新增
+        quality_factor_list = []  # 新增 Q 值列表
 
         print("  Found {0:d} event folders...".format(len(evs)))
         if args.auto:
@@ -348,8 +349,13 @@ def main(args=None):
             split.quality = pickle.load(file)
 
             # -------------------------------
-            # 兼容新增的 best_filter_band
+            # 兼容新增的 best_filter_band 和 quality_factor
             # -------------------------------
+            try:
+                quality_factor = pickle.load(file)     # 新增的 Q 值
+            except EOFError:
+                quality_factor = None                  # 旧版本没有
+            
             try:
                 best_filter_band = pickle.load(file)   # (fmin, fmax)
             except EOFError:
@@ -422,6 +428,7 @@ def main(args=None):
                 evmag.append(split.meta.mag)
                 evtime.append(split.meta.time)
                 filter_band.append(best_filter_band)
+                quality_factor_list.append(quality_factor)
 
             else:
 
@@ -638,7 +645,7 @@ def main(args=None):
             "eq_time (UTC), eq_lon, eq_lat, eq_mag, "
             "PHI_RC (deg), dPHI_RC (deg), DT_RC (s), dDT_RC (s), "
             "PHI_SC (deg), dPHI_SC (deg), DT_SC (s), dDT_SC (s), "
-            "fmin (Hz), fmax (Hz)\n")
+            "fmin (Hz), fmax (Hz), Q\n")
         for i in range(len(evlon)):
             line1 = "{0},{1:8.4f},{2:7.4f},{3:3.1f},".format(
                     evtime[i], evlon[i], evlat[i], evmag[i])
@@ -651,12 +658,16 @@ def main(args=None):
                 fmin, fmax = np.nan, np.nan
             else:
                 fmin, fmax = filter_band[i]
-            line4 = "{0:.3f},{1:.3f}\n".format(fmin, fmax)
+            line4 = "{0:.3f},{1:.3f},".format(fmin, fmax)
+            # 处理 Q 值（兼容 None）
+            q_val = quality_factor_list[i] if quality_factor_list[i] is not None else np.nan
+            line5 = "{0:.3f}\n".format(q_val)
             fid.writelines(
                 line1.replace(" ", "") +
                 line2.replace(" ", "") +
                 line3.replace(" ", "") +
-                line4)
+                line4 +
+                line5)
 
         fid.close()
 
