@@ -731,7 +731,6 @@ def search_best_window_and_filter(
 
             split_temp.calc_snr(t1=t1, dt=dt, fmin=fmin, fmax=fmax)
             snr = split_temp.meta.snrt if snr_comp == "T" else split_temp.meta.snrq
-
             split_temp.analyze(t1=t1, t2=t2, apply_filter=False, fmin=fmin, fmax=fmax, verbose=False)
 
             Q = utils.null_quality_factor(
@@ -756,10 +755,10 @@ def search_best_window_and_filter(
             
             # 实时打印（保持之前的逻辑）
             curr_best_q = best['Q'] if best['Q'] is not None else np.nan
-            curr_best_snr = best['snr'] if best['snr'] is not None else np.nan
+            curr_best_snrq = best['snr'] if best['snr'] is not None else np.nan
             curr_best_fmin = best['fmin'] if best['fmin'] is not None else np.nan
             curr_best_fmax = best['fmax'] if best['fmax'] is not None else np.nan
-            print(f"  Shift {ishift:+.1f}s, Filter {fmin:.2f}-{fmax:.2f}Hz | Current: Q={Q:.3f}, SNR={snr:.1f} | BEST SO FAR: Q={curr_best_q:.3f}, Filter={curr_best_fmin:.2f}-{curr_best_fmax:.2f}Hz, SNR={curr_best_snr:.1f}")
+            print(f"*Shift {ishift:+.1f}s, Filter {fmin:.2f}-{fmax:.2f}Hz | Current: Q={Q:.3f}, SNRQ={snr:.1f}, , SNRT={split_temp.meta.snrt:.1f} | BEST: Q={curr_best_q:.3f}, Filter={curr_best_fmin:.2f}-{curr_best_fmax:.2f}Hz, SNRQ={curr_best_snrq:.1f}")
 
     return best
 
