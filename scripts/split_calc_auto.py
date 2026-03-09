@@ -734,13 +734,10 @@ def search_best_window_and_filter(
 
             split_temp.analyze(t1=t1, t2=t2, apply_filter=False, fmin=fmin, fmax=fmax, verbose=False)
 
-            if snr is not None and snr < snrTlim:
-                Q = 0.0
-            else:
-                Q = utils.null_quality_factor(
-                    split_temp.SC_res.phi, split_temp.RC_res.phi,
-                    split_temp.SC_res.dtt, split_temp.RC_res.dtt,
-                    snrT=snr)
+            Q = utils.null_quality_factor(
+                split_temp.SC_res.phi, split_temp.RC_res.phi,
+                split_temp.SC_res.dtt, split_temp.RC_res.dtt,
+                snrT=snr)
 
 
             if best["Q"] is None or abs(Q) > abs(best["Q"]):
