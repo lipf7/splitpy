@@ -796,6 +796,7 @@ def search_best_window_and_filter(
                     fmin=fmin,
                     fmax=fmax,
                 )
+            print(f"  Shift {ishift:+.1f} sec, Filter {fmin:.2f}-{fmax:.2f} Hz: Qbest={Q:.3f}, SNR({snr_comp})={snr:.1f} dB")
 
     return best
 
@@ -1112,7 +1113,7 @@ def main(args=None):
 
                     # 1. 自适应窗口
                     base_t1, base_t2 = get_adaptive_sks_window(split)
-
+                    print(f"Base window: {base_t1 - split.meta.time:.2f} - {base_t2 - split.meta.time:.2f} sec")
                     # 2. 搜索最优窗口 + 滤波
                     best = search_best_window_and_filter(
                         split,
@@ -1175,7 +1176,8 @@ def main(args=None):
                     split.rotate(align='LQT')
                     # 1. 自适应窗口
                     base_t1, base_t2 = get_adaptive_sks_window(split)
-
+                    print(f"Base window: {base_t1 - split.meta.time:.2f} - {base_t2 - split.meta.time:.2f} sec")
+                    
                     # 2. 搜索最优窗口 + 滤波
                     best = search_best_window_and_filter(
                         split,
@@ -1186,6 +1188,9 @@ def main(args=None):
                         snrTlim=args.snrTlim,
                         snr_comp="R"  # only for logging
                     )
+                    print("*"*50)
+                    print(f"Best Q: {best.get('Q', np.nan):.2f}, SNRR: {best.get('snr', np.nan):.2f} dB, Filter: {best.get('fmin', np.nan):.2f}-{best.get('fmax', np.nan):.2f} Hz")
+                    
                     if best is None or best.get("fmin") is None or best.get("fmax") is None:
                         print("WARNING: No valid filter band selected for this event/station.")
                         best = {
