@@ -707,7 +707,7 @@ def search_best_window_and_filter(
     snr_comp="R"
 ):
     best = {
-        "Q": -np.inf,
+        "Q": None,  # <--- 将 -np.inf 改为 None
         "snr": None,
         "t1": None,
         "t2": None,
@@ -748,7 +748,8 @@ def search_best_window_and_filter(
                 split_temp.SC_res.dtt, split_temp.RC_res.dtt,
                 snrT=snrTlim)
 
-            if abs(Q) > abs(best["Q"]):
+            # <--- 修复判断逻辑：如果是第一次循环（None）或者绝对值更大，则更新
+            if best["Q"] is None or abs(Q) > abs(best["Q"]):
                 best.update(
                     Q=Q,
                     snr=snr,
@@ -757,14 +758,15 @@ def search_best_window_and_filter(
                     fmin=fmin,
                     fmax=fmax,
                 )
-            # Safely handle None and -inf for real-time printing
-            curr_best_q = best['Q'] if best['Q'] != -np.inf else np.nan
+                
+            # 实时打印：因为初始值改成了 None，这里的安全检查也稍微调整一下
+            curr_best_q = best['Q'] if best['Q'] is not None else np.nan
             curr_best_snr = best['snr'] if best['snr'] is not None else np.nan
             curr_best_fmin = best['fmin'] if best['fmin'] is not None else np.nan
             curr_best_fmax = best['fmax'] if best['fmax'] is not None else np.nan
-            # Print current iteration metrics alongside the best metrics found so far
-            print(f"  Shift {ishift:+.1f}s, Filter {fmin:.2f}-{fmax:.2f}Hz | Current: Q={Q:.3f}| BEST SO FAR: Q={curr_best_q:.3f}, Filter={curr_best_fmin:.2f}-{curr_best_fmax:.2f}Hz")
-
+            
+            print(f"  Shift {ishift:+.1f}s, Filter {fmin:.2f}-{fmax:.2f}Hz | Current: Q={Q:.3f}, SNR={snr:.1f}dB | BEST SO FAR: Q={curr_best_q:.3f}, Filter={curr_best_fmin:.2f}-{curr_best_fmax:.2f}Hz, SNR={curr_best_snr:.1f}dB")
+            
     return best
 
 
