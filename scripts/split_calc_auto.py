@@ -216,6 +216,25 @@ def get_arguments_calc_auto(argv=None):
             "[Default: 0.02-0.2,0.05-0.5,0.1-1.0]")
         )
 
+    # Advanced Settings for Window and Filter Search
+    AdvancedGroup = parser.add_argument_group(
+        title='Advanced Settings',
+        description="Settings for adaptive window and filter search")
+    AdvancedGroup.add_argument(
+        "--shift-sec",
+        action="store",
+        type=float,
+        dest="shift_sec",
+        default=5.0,
+        help="Specify shift seconds for window search (sec). [Default 5.]")
+    AdvancedGroup.add_argument(
+        "--search-step",
+        action="store",
+        type=float,
+        dest="search_step",
+        default=1.0,
+        help="Specify step size for window search (sec). [Default 1.]")
+
     # Event Selection Criteria
     EventGroup = parser.add_argument_group(
         title="Event Settings",
@@ -708,42 +727,74 @@ def search_best_window_and_filter(
     filterbands,
     shift_sec=5,
     step=1.0,
+    snrTlim=3.0,
     snr_comp="R"
 ):
     """
-    search_best_window_and_filter 的 Docstring
-    
-    在给定的时间窗口和滤波器组下，搜索最佳的SNR值。
-    
-    :param split: Split对象，包含数据和元数据
-    
-    :return: best字典，包含最佳SNR及其对应的参数,[snr, t1, t2, fmin, fmax]
+    搜索给定基础窗口和平移范围内的最佳分裂参数组合，
+    现在使用数值质量因子 ``Q`` 作为判据代替 SNR。
+
+    ``Q`` 由 :func:`~splitpy.utils.null_quality_factor` 计算，
+    模仿 SplitLab 中的 ``NullCriterion``。返回结果包含最佳
+    Q 值、对应的时间窗口、滤波带以及（仅用于参考）SNR。
+
+    参数
+    ----------
+    split : :class:`~splitpy.classes.Split`
+        已经旋转至 LQT 的分裂对象，包含数据和元数据。
+    base_t1, base_t2 : float
+        基础的窗口起止时间（秒）。
+    filterbands : list
+        [(fmin, fmax), ...] 的频带列表。
+    shift_sec : float, optional
+        从基础窗口开始的偏移范围（秒）。
+    step : float, optional
+        偏移步长（秒）。
+    snr_comp : {'R','T','Q'}
+        仅用于记录的 SNR 分量（径向/横向/总）。
+
+    返回
+    ------
+    dict
+        包含键 ``Q``、``snr``、``t1``、``t2``、``fmin`` 和 ``fmax``。
     """
     best = {
-        "snr": -1e9,
+        "Q": -np.inf,
+        "snr": None,
         "t1": None,
         "t2": None,
         "fmin": None,
-        "fmax": None
+        "fmax": None,
     }
 
-    for ishift in np.arange(-shift_sec, shift_sec , step):
+    for ishift in np.arange(-shift_sec, shift_sec, step):
         t1 = base_t1 + ishift
         t2 = base_t2 + ishift
         dt = t2 - t1
 
         for fmin, fmax in filterbands:
+            # calculate SNR for bookkeeping
             split.calc_snr(t1=t1, dt=dt, fmin=fmin, fmax=fmax)
-
             snr = split.meta.snrt if snr_comp == "T" else split.meta.snrq
 
-            if snr > best["snr"]:
+            # perform a quick splitting analysis to obtain RC/SC results
+            split.analyze(t1=t1, t2=t2, apply_filter=True,
+                            fmin=fmin, fmax=fmax, verbose=False)
+
+            # compute numeric quality factor using helper
+            Q = utils.null_quality_factor(
+                split.SC_res.phi, split.RC_res.phi,
+                split.SC_res.dtt, split.RC_res.dtt,
+                snrTlim=snrTlim)
+
+            if Q > best["Q"]:
                 best.update(
+                    Q=Q,
                     snr=snr,
                     t1=t1,
                     t2=t2,
                     fmin=fmin,
-                    fmax=fmax
+                    fmax=fmax,
                 )
 
     return best
@@ -866,7 +917,7 @@ def main(args=None):
             tend.strftime("%Y-%m-%d %H:%M:%S")))
         if args.maxmag is None:
             print("|   Mag:   >{0:3.1f}".format(args.minmag) +
-                  "                                    |")
+                    "                                    |")
         else:
             msg = "|   Mag:   {0:3.1f}".format(args.minmag) + \
                 " - {0:3.1f}".format(args.maxmag) + \
@@ -1008,7 +1059,7 @@ def main(args=None):
                 if args.verb:
                     print("*   Phase: {}".format(args.phase))
                     print("*   Origin Time: " +
-                          split.meta.time.strftime("%Y-%m-%d %H:%M:%S"))
+                            split.meta.time.strftime("%Y-%m-%d %H:%M:%S"))
                     print(
                         "*   Lat: {0:6.2f};        Lon: {1:7.2f}".format(
                             split.meta.lat, split.meta.lon))
@@ -1016,9 +1067,9 @@ def main(args=None):
                         "*   Dep: {0:6.2f} km;     Mag: {1:3.1f}".format(
                             split.meta.dep, split.meta.mag))
                     print("*   Dist: {0:7.2f} km;".format(split.meta.epi_dist) +
-                          "   Epi dist: {0:6.2f} deg\n".format(split.meta.gac) +
-                          "*   Baz:  {0:6.2f} deg;".format(split.meta.baz) +
-                          "   Az: {0:6.2f} deg".format(split.meta.az))
+                            "   Epi dist: {0:6.2f} deg\n".format(split.meta.gac) +
+                            "*   Baz:  {0:6.2f} deg;".format(split.meta.baz) +
+                            "   Az: {0:6.2f} deg".format(split.meta.az))
 
                 # Event Folder
                 timekey = split.meta.time.strftime("%Y%m%d_%H%M%S")
@@ -1067,36 +1118,38 @@ def main(args=None):
                         split,
                         base_t1, base_t2,
                         args.filterbands_list,
-                        shift_sec=5,
-                        step=1.0,
-                        snr_comp="Q"
+                        shift_sec=args.shift_sec,
+                        step=args.search_step,
+                        snrTlim=args.snrTlim,
+                        snr_comp="Q"  # component only used for bookkeeping
                     )
 
-                    # 3. 记录 SNR
-                    split.analysis_cfg["snr"] = best["snr"]
+                    # 3. 记录质量因子和（参考）SNR
+                    split.analysis_cfg["quality_factor"] = best.get("Q")
+                    split.analysis_cfg["snr"] = best.get("snr")
                     split.analysis_cfg["snr_component"] = "Q"
 
-
                     # --------------------------------------------------
-                    # 检查是否找到有效频段
+                    # 检查是否找到有效参数组合
                     # --------------------------------------------------
-                    if best["snr"] is None:
+                    if best.get("Q") is None:
                         if args.verb:
-                            print("* No valid SNR found for any filter band")
+                            print("* No valid parameter set found for any filter band")
                             print("*" * 50)
                         continue
 
                     # --------------------------------------------------
-                    # 使用 SNR 最优的滤波结果
+                    # 使用 Q 最优的滤波结果（同时记录 SNR 供参考）
                     # --------------------------------------------------
-                    split.meta.snrq = best["snr"]
+                    split.meta.quality_factor = best["Q"]
+                    split.meta.snrq = best.get("snr")
                     split.meta.best_filter_band = (best["fmin"], best["fmax"])
 
                     if args.verb:
                         print(
-                            f"* Selected filter band: "
-                            f"{best["fmin"]:.2f}-{best["fmax"]:.2f} Hz "
-                            f"(SNRQ = {best["snr"]:.2f})"
+                            f"* Selected filter band: {best['fmin']:.2f}-{best['fmax']:.2f} Hz "
+                            f"* Selected window: {best['t1'] - split.meta.time:.2f} - {best['t2'] - split.meta.time:.2f} sec "
+                            f"(Q = {best['Q']:.2f}, SNRQ = {best.get('snr',np.nan):.2f})"
                         )
                     # Save LQT Traces
                     pickle.dump(split.dataLQT, open(LQTfile, "wb"))
@@ -1128,48 +1181,51 @@ def main(args=None):
                         split,
                         base_t1, base_t2,
                         args.filterbands_list,
-                        shift_sec=5,
-                        step=1.0,
-                        snr_comp="R"
+                        shift_sec=args.shift_sec,
+                        step=args.search_step,
+                        snrTlim=args.snrTlim,
+                        snr_comp="R"  # only for logging
                     )
                     if best is None or best.get("fmin") is None or best.get("fmax") is None:
                         print("WARNING: No valid filter band selected for this event/station.")
                         best = {
                             "fmin": np.nan,
                             "fmax": np.nan,
+                            "Q": np.nan,
                             "snr": np.nan,
                             "result": None
                         }
                     if args.verb:
                         print(
-                            f"* Best filter band: "
-                            f"{best["fmin"]:.2f}-{best["fmax"]:.2f} Hz "
-                            f"(SNRQ = {best["snr"]:.2f})"
+                            f"* Best filter band: {best['fmin']:.2f}-{best['fmax']:.2f} Hz "
+                            f"* Best window: {best['t1'] - split.meta.time:.2f} - {best['t2'] - split.meta.time:.2f} sec "
+                            f"(Q = {best.get('Q',np.nan):.2f}, SNRQ = {best.get('snr',np.nan):.2f})"
                         )
 
-                    # 3. 记录 SNR
-                    split.analysis_cfg["snr"] = best["snr"]
+                    # 3. 记录质量因子和参考 SNR
+                    split.analysis_cfg["quality_factor"] = best.get("Q")
+                    split.analysis_cfg["snr"] = best.get("snr")
                     split.analysis_cfg["snr_component"] = "Q"
 
                     # Make sure no processing happens for NaNs
-                    if np.isnan(best["snr"]):
+                    if np.isnan(best.get("Q", np.nan)):
                         if args.verb:
-                            print("* SNR NaN, continuing")
+                            print("* Quality factor NaN, continuing")
                             print("*"*50)
                         continue
                     
-                    # If SNR lower than user-specified threshold, continue
-                    if best["snr"] < args.msnr:
+                    # 如果质量因子为0，可认为不是好结果并跳过
+                    if best.get("Q", 0) == 0:
                         if args.verb:
-                            print(
-                                "* SNRQ < {0:.1f}, continuing".format(args.msnr))
+                            print("* Quality factor negative, Qauto is 0, continuing")
                             print("*"*50)
                         continue
 
                     # --------------------------------------------------
-                    # 使用 SNR 最优的滤波结果
+                    # 使用 Q 最优的滤波结果
                     # --------------------------------------------------
-                    split.meta.snrq = best["snr"]
+                    split.meta.quality_factor = best.get("Q")
+                    split.meta.snrq = best.get("snr")
                     split.meta.best_filter_band = (best["fmin"], best["fmax"])
 
                     # Create Folder if it doesn't exist
@@ -1183,6 +1239,7 @@ def main(args=None):
                     pickle.dump(split.dataLQT, open(LQTfile, "wb"))
 
                 if args.verb:
+                    print("* Quality factor: {}".format(getattr(split.meta,'quality_factor',None)))
                     print("* SNRQ: {}".format(split.meta.snrq))
                     print("* SNRT: {}".format(split.meta.snrt))
 
@@ -1225,6 +1282,16 @@ def main(args=None):
                     split.is_null(args.snrTlim, verbose=args.verb)
                     split.get_quality(verbose=args.verb)
 
+                    # also compute numeric quality factor and store it
+                    try:
+                        qval = utils.null_quality_factor(
+                            split.SC_res.phi, split.RC_res.phi,
+                            split.SC_res.dtt, split.RC_res.dtt,
+                            snrTlim=snrTlim)
+                    except Exception:
+                        qval = None
+                    split.meta.quality_factor = qval
+
                 # Display results
                 if args.verb:
                     split.display_meta()
@@ -1245,6 +1312,8 @@ def main(args=None):
                     pickle.dump(split.RC_res, file)
                     pickle.dump(split.null, file)
                     pickle.dump(split.quality, file)
+                    # newly added numeric quality factor
+                    pickle.dump(getattr(split.meta, 'quality_factor', None), file)
                     pickle.dump(split.meta.best_filter_band, file)
                     file.close()
 

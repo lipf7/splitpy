@@ -188,15 +188,74 @@ def download_data(client=None, sta=None, start=UTCDateTime(),
         return True, None
 
     elif not np.allclose([st[0].stats.npts], int((end - start)*sr),
-                         atol=1):
+                        atol=1):
         print("* Length is too short: ")
         print("*    "+str(st[0].stats.npts) +
-              " ~= "+str(int((end - start)*sr)))
+            " ~= "+str(int((end - start)*sr)))
         print("* -> Skipping")
         print("**************************************************")
 
         return True, None
 
     else:
-        print("* Waveforms Retrieved...")
-        return False, st
+        pass
+        #print("* Waveforms Retrieved...")
+        #return False, st
+
+
+# ---------------------------------------------------------------------------
+# Quality factor helper -----------------------------------------------------
+
+def null_quality_factor(phiSC, phiRC, dtSC, dtRC, snrT=None):
+    """
+    Numerically evaluate the quality factor ``Q`` used in the MATLAB
+    version of SplitLab (see :file:`NullCriterion.m`).  The result is
+    positive for non-null solutions (larger is better) and negative for
+    nulls.  Values range between -1 and +1; zeros are returned for very
+    noisy transverse components when ``snrT`` is provided and falls
+    below 3.
+
+    Parameters
+    ----------
+    phiSC : float
+        Fast axis from Silver-Chan method (degrees)
+    phiRC : float
+        Fast axis from Rotation-Correlation method (degrees)
+    dtSC : float
+        Delay time from Silver-Chan (seconds)
+    dtRC : float
+        Delay time from Rotation-Correlation (seconds)
+    snrT : float, optional
+        Signal-to-noise ratio of the transverse component; if supplied
+        and ``snrT < 3`` the returned Q is forced to zero.
+
+    Returns
+    -------
+    float
+        Computed quality factor.
+    """
+
+    # mimic behaviour of MATLAB code line-by-line
+    x1 = dtSC if dtSC != 0 else 1e-5
+    x2 = dtRC
+    X = x2 / x1
+
+    Y = abs(phiSC - phiRC) % 90
+    if Y > 45:
+        Y = 90 - Y
+    Y = Y / 45.0
+
+    # compute the two distances used in the criterion
+    Dist1 = np.sqrt(X**2 + (Y - 1) ** 2) / np.sqrt(0.5)
+    Dist2 = np.sqrt((X - 1) ** 2 + Y**2) / np.sqrt(0.5)
+
+    # select the smaller distance and assign sign accordingly
+    if Dist1 < Dist2:
+        Q = -1.0 * (1.0 - Dist1)
+    else:
+        Q = 1.0 * (1.0 - Dist2)
+
+    if snrT is not None and snrT < 3:
+        Q = 0.0
+
+    return Q

@@ -172,7 +172,7 @@ def test_split(tmp_path):
                 if args.verb:
                     print("*   Phase: {}".format(args.phase))
                     print("*   Origin Time: " +
-                          split.meta.time.strftime("%Y-%m-%d %H:%M:%S"))
+                            split.meta.time.strftime("%Y-%m-%d %H:%M:%S"))
                     print(
                         "*   Lat: {0:6.2f};        Lon: {1:7.2f}".format(
                             split.meta.lat, split.meta.lon))
@@ -180,9 +180,9 @@ def test_split(tmp_path):
                         "*   Dep: {0:6.2f} km;     Mag: {1:3.1f}".format(
                             split.meta.dep, split.meta.mag))
                     print("*   Dist: {0:7.2f} km;".format(split.meta.epi_dist) +
-                          "   Epi dist: {0:6.2f} deg\n".format(split.meta.gac) +
-                          "*   Baz:  {0:6.2f} deg;".format(split.meta.baz) +
-                          "   Az: {0:6.2f} deg".format(split.meta.az))
+                            "   Epi dist: {0:6.2f} deg\n".format(split.meta.gac) +
+                            "*   Baz:  {0:6.2f} deg;".format(split.meta.baz) +
+                            "   Az: {0:6.2f} deg".format(split.meta.az))
 
                 # Event Folder
                 timekey = split.meta.time.strftime("%Y%m%d_%H%M%S")
@@ -253,5 +253,21 @@ def test_split(tmp_path):
                 split.display_results()
                 split.display_meta()
                 split.display_null_quality()
+
+
+def test_null_quality_factor():
+    """verify that the numerical quality factor returns reasonable values"""
+    from splitpy.utils import null_quality_factor
+    # identical phi values and equal delays should give positive Q near +1
+    q1 = null_quality_factor(10.0, 10.0, 1.0, 1.0)
+    assert q1 > 0
+
+    # large mismatch in phi and dt produce negative or small Q
+    q2 = null_quality_factor(0.0, 90.0, 0.1, 4.0)
+    assert q2 <= 0
+
+    # check that snrT threshold forces zero
+    q3 = null_quality_factor(0,0,1,1,snrT=2.0)
+    assert q3 == 0
 
 

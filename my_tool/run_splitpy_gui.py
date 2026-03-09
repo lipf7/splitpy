@@ -27,7 +27,7 @@ class SplitGUI(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("Shear-wave Splitting Calculator")
+        self.title("Shear-wave Splitting Calculator (剪切波分裂计算器)")
         self.geometry("1050x720")
 
         self.style = ttk.Style(self)
@@ -49,48 +49,53 @@ class SplitGUI(tk.Tk):
         self.groups = {
 
             "Station & Data": [
-                Param("Station .pkl", None, browse="file"),
-                Param("SDS data dir", "--event-datadir", browse="dir"),
-                Param("Local event list (.CSV)", "--local-event", browse="file"),
-                Param("Station keys", "--keys"),
+                Param("Station .pkl", None, browse="file"),  # 台站数据库文件（.pkl格式）
+                Param("SDS data dir", "--event-datadir", browse="dir"),  # 事件数据目录（SDS格式）
+                Param("Local event list (.CSV)", "--local-event", browse="file"),  # 本地事件列表（CSV格式）
+                Param("Station keys", "--keys"),  # 台站键值（逗号分隔）
                 Param("Data format", "--data-format", "SAC",
-                      choices=["SAC", "MSEED"]),
+                      choices=["SAC", "MSEED"]),  # 数据格式（SAC或MSEED）
             ],
 
             "Event Settings": [
-                Param("Start time (UTC)", "--start"),
-                Param("End time (UTC)", "--end"),
-                Param("Min magnitude", "--min-mag", "6.0"),
-                Param("Max magnitude", "--max-mag"),
-                Param("Reverse order", "--reverse", ptype="bool"),
+                Param("Start time (UTC)", "--start"),  # 事件搜索开始时间（UTC）
+                Param("End time (UTC)", "--end"),  # 事件搜索结束时间（UTC）
+                Param("Min magnitude", "--min-mag", "6.0"),  # 最小震级
+                Param("Max magnitude", "--max-mag"),  # 最大震级
+                Param("Reverse order", "--reverse", ptype="bool"),  # 反转事件顺序
             ],
 
             "Geometry": [
                 Param("Phase", "--phase", "SKS",
-                      choices=["SKS", "SKKS", "PKS"]),
-                Param("Min distance (deg)", "--min-dist", "85"),
-                Param("Max distance (deg)", "--max-dist", "120"),
+                      choices=["SKS", "SKKS", "PKS"]),  # 相位名称（SKS、SKKS或PKS）
+                Param("Min distance (deg)", "--min-dist", "85"),  # 最小距离（度）
+                Param("Max distance (deg)", "--max-dist", "120"),  # 最大距离（度）
             ],
 
             "Signal Processing": [
-                Param("Filter bands (Hz) fmin-fmax,...", "--filter-bands", "0.02-0.2,0.05-0.5,0.1-1.0"),
-                Param("Sampling rate (Hz)", "--sampling-rate", "10"),
-                Param("Window (s)", "--window", "120"),
-                Param("Min SNRQ", "--min-snr", "5"),
-                Param("SNRT threshold", "--snrT", "1"),
-                Param("Max delay (s)", "--max-delay", "4"),
-                Param("DT delay (s)", "--dt-delay", "0.1"),
-                Param("Dphi (deg)", "--dphi", "1"),
+                Param("Filter bands (Hz) (fmin-fmax,...)", "--filter-bands", "0.02-0.2,0.05-0.5,0.1-1.0"),  # 滤波频带（Hz），格式：fmin-fmax,fmin-fmax,...
+                Param("Sampling rate (Hz)", "--sampling-rate", "10"),  # 采样率（Hz）
+                Param("Window (s)", "--window", "120"),  # 窗口长度（秒）
+                Param("Min SNRQ", "--min-snr", "4"),  # 最小径向分量SNR（用于参考阈值）
+                Param("SNRT threshold", "--snrT", "1"),  # 横向分量SNR阈值（用于空解判断）和Q值计算控制
+                Param("Max delay (s)", "--max-delay", "4"),  # 最大延迟时间（秒）
+                Param("DT delay (s)", "--dt-delay", "0.1"),  # 延迟时间增量（秒）
+                Param("Dphi (deg)", "--dphi", "1"),  # 快速轴角度增量（度）
             ],
 
             "Control": [
-                Param("Calc", "--calc", ptype="bool"),
-                Param("Recalc", "--recalc", ptype="bool"),
-                Param("Overwrite", "--overwrite", ptype="bool"),
-                Param("Skip existing", "--skip-existing", ptype="bool"),
-                Param("Verbose", "--verbose", ptype="bool"),
+                Param("Calc", "--calc", ptype="bool"),  # 执行分裂分析
+                Param("Recalc", "--recalc", ptype="bool"),  # 重新计算（不重新下载数据）
+                Param("Overwrite", "--overwrite", ptype="bool"),  # 覆盖现有结果
+                Param("Skip existing", "--skip-existing", ptype="bool"),  # 跳过已有结果的事件
+                Param("Verbose", "--verbose", ptype="bool"),  # 详细输出
                 Param("Diagnostic plot dir",
-                      "--plot-diagnostic", browse="dir"),
+                      "--plot-diagnostic", browse="dir"),  # 诊断图保存目录
+            ],
+
+            "Advanced Settings": [
+                Param("Shift sec for window search", "--shift-sec", "5.0"),  # 窗口搜索偏移秒数
+                Param("Step size for window search", "--search-step", "1.0"),  # 窗口搜索步长
             ],
         }
 
@@ -106,7 +111,7 @@ class SplitGUI(tk.Tk):
         right = ttk.Frame(main, width=350)
         right.pack(side="right", fill="y", padx=10, pady=10)
 
-        ttk.Label(left, text="Parameters",
+        ttk.Label(left, text="Parameters (参数)",
                   style="Title.TLabel").pack(anchor="w", pady=5)
 
         canvas = tk.Canvas(left, highlightthickness=0)
@@ -156,7 +161,7 @@ class SplitGUI(tk.Tk):
                                    command=lambda v=p.var, b=p.browse:
                                    self.browse(v, b)).pack(side="left", padx=4)
 
-        ttk.Label(right, text="Command Preview",
+        ttk.Label(right, text="Command Preview (命令预览)",
                   style="Title.TLabel").pack(anchor="w", pady=5)
 
         self.cmd = tk.Text(right, height=18,
@@ -166,11 +171,11 @@ class SplitGUI(tk.Tk):
         btns = ttk.Frame(right)
         btns.pack(pady=10)
 
-        ttk.Button(btns, text="Build Command",
+        ttk.Button(btns, text="Build Command (构建命令)",
                    command=self.build_cmd).pack(fill="x", pady=4)
-        ttk.Button(btns, text="Run",
+        ttk.Button(btns, text="Run (运行)",
                    command=self.run).pack(fill="x", pady=4)
-        ttk.Button(btns, text="Quit",
+        ttk.Button(btns, text="Quit (退出)",
                    command=self.quit).pack(fill="x", pady=4)
 
     # ------------------------------------------------
@@ -189,7 +194,7 @@ class SplitGUI(tk.Tk):
 
         indb = self.groups["Station & Data"][0].var.get()
         if not indb:
-            messagebox.showerror("Error", "Station DB is required")
+            messagebox.showerror("Error (错误)", "Station DB is required (需要台站数据库)")
             return
         cmd.append(indb)
 
@@ -215,7 +220,7 @@ class SplitGUI(tk.Tk):
         if not command:
             return
         subprocess.Popen(command, shell=True)
-        messagebox.showinfo("Running", "Calculation started.")
+        messagebox.showinfo("Running (运行中)", "Calculation started. (计算已开始)")
 
 
 if __name__ == "__main__":
