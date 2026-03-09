@@ -262,7 +262,4 @@ def null_quality_factor(phiSC, phiRC, dtSC, dtRC, snrT=None):
     else:
         Q = 1.0 * (1.0 - min_dist)
 
-    if snrT is not None and snrT < 3:
-        Q = 0.0
-
     return Q

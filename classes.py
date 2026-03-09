@@ -747,7 +747,7 @@ class Split(object):
 
         # Calculate Angular Difference for Null Measurement
         dphi = max(abs(self.RC_res.phi - self.SC_res.phi),
-                   abs(self.SC_res.phi - self.RC_res.phi))
+                    abs(self.SC_res.phi - self.RC_res.phi))
         if dphi > 90.:
             dphi = 180. - dphi
 
@@ -764,7 +764,7 @@ class Split(object):
                         self.meta.snrt, snrTlim))
             if 22. < dphi < 68.:
                 print("*" + " "*5 +
-                      "  dPhi Fail: {0:.2f} within 22. < X < 68.".format(dphi))
+                        "  dPhi Fail: {0:.2f} within 22. < X < 68.".format(dphi))
             else:
                 print(
                     "*" + " "*5 +
@@ -801,7 +801,7 @@ class Split(object):
 
         # Test based on difference in fast axis directions
         dphi = max(abs(self.RC_res.phi - self.SC_res.phi),
-                   abs(self.SC_res.phi - self.RC_res.phi))
+                    abs(self.SC_res.phi - self.RC_res.phi))
         if dphi > 90.:
             dphi = 180. - dphi
 
@@ -815,15 +815,15 @@ class Split(object):
                 self.quality = 'Poor'
             if verbose:
                 print("*" + " "*5 +
-                      "Quality Estimate: Null -- {0:s}".format(self.quality))
+                        "Quality Estimate: Null -- {0:s}".format(self.quality))
                 print("*" + " "*5 +
-                      "    rho: {0:.2f}; dphi: {1:.2f}".format(rho, dphi))
+                        "    rho: {0:.2f}; dphi: {1:.2f}".format(rho, dphi))
                 print("*" + " "*5 +
-                      "      Good: rho < 0.2  &&  37 < dphi < 53")
+                        "      Good: rho < 0.2  &&  37 < dphi < 53")
                 print("*" + " "*5 +
-                      "      Fair: rho < 0.3  &&  32 < dphi < 58")
+                        "      Fair: rho < 0.3  &&  32 < dphi < 58")
                 print("*" + " "*5 +
-                      "      Poor: rho > 0.3  &&  dphi < 32 | dphi > 58")
+                        "      Poor: rho > 0.3  &&  dphi < 32 | dphi > 58")
 
         # If estimate is non-Null
         else:
@@ -838,13 +838,13 @@ class Split(object):
                     "*" + " "*5 +
                     "Quality Estimate: Non-Null -- {0:s}".format(self.quality))
                 print("*" + " "*5 +
-                      "    rho: {0:.2f}; dphi: {1:.2f}".format(rho, dphi))
+                        "    rho: {0:.2f}; dphi: {1:.2f}".format(rho, dphi))
                 print("*" + " "*5 +
-                      "      Good: 0.8 < rho < 1.1  &&  dphi < 8")
+                        "      Good: 0.8 < rho < 1.1  &&  dphi < 8")
                 print("*" + " "*5 +
-                      "      Fair: 0.7 < rho < 1.2  &&  dphi < 15")
+                        "      Fair: 0.7 < rho < 1.2  &&  dphi < 15")
                 print("*" + " "*5 +
-                      "      Poor: rho < 0.7 | rho > 1.3 &&  dphi > 15")
+                        "      Poor: rho < 0.7 | rho > 1.3 &&  dphi > 15")
 
     def display_results(self, ds=0):
         """
@@ -861,17 +861,17 @@ class Split(object):
         print()
         print(" "*ds + ' Best fit values: RC method')
         print(" "*ds + ' Phi = ' +
-              str("{:3d}").format(int(self.RC_res.phi)) +
-              ' degrees +/- ' + str("{:2d}").format(int(self.RC_res.ephi)))
+                str("{:3d}").format(int(self.RC_res.phi)) +
+                ' degrees +/- ' + str("{:2d}").format(int(self.RC_res.ephi)))
         print(" "*ds + ' dt = ' + str("{:.1f}").format(self.RC_res.dtt) +
-              ' seconds +/- ' + str("{:.1f}").format(self.RC_res.edtt))
+                ' seconds +/- ' + str("{:.1f}").format(self.RC_res.edtt))
         print()
         print(" "*ds + ' Best fit values: SC method')
         print(" "*ds + ' Phi = ' +
-              str("{:3d}").format(int(self.SC_res.phi)) +
-              ' degrees +/- ' + str("{:2d}").format(int(self.SC_res.ephi)))
+                str("{:3d}").format(int(self.SC_res.phi)) +
+                ' degrees +/- ' + str("{:2d}").format(int(self.SC_res.ephi)))
         print(" "*ds + ' dt = ' + str("{:.1f}").format(self.SC_res.dtt) +
-              ' seconds +/- ' + str("{:.1f}").format(self.SC_res.edtt))
+                ' seconds +/- ' + str("{:.1f}").format(self.SC_res.edtt))
         print()
 
     def display_meta(self,  ds=0):
@@ -888,27 +888,27 @@ class Split(object):
         print(" "*ds + ' ======= Meta data ========')
         print()
         print(" "*ds + ' SNR (dB):            ' +
-              str("{:.0f}").format(self.meta.snrq))
+                str("{:.0f}").format(self.meta.snrq))
         print(" "*ds + ' Station:             ' + self.sta.station)
         print(" "*ds + ' Time:                ' + str(self.meta.time))
         print(" "*ds + ' Event depth (km):    ' +
-              str("{:.0f}").format(self.meta.dep/1000.))
+                str("{:.0f}").format(self.meta.dep/1000.))
         print(" "*ds + ' Magnitude (Mw):      ' +
-              str("{:.1f}").format(self.meta.mag))
+                str("{:.1f}").format(self.meta.mag))
         print(" "*ds + ' Longitude (deg):     ' +
-              str("{:.2f}").format(self.meta.lon))
+                str("{:.2f}").format(self.meta.lon))
         print(" "*ds + ' Latitude (deg):      ' +
-              str("{:.2f}").format(self.meta.lat))
+                str("{:.2f}").format(self.meta.lat))
         print(" "*ds + ' GAC (deg):           ' +
-              str("{:.2f}").format(self.meta.gac))
+                str("{:.2f}").format(self.meta.gac))
         print(" "*ds + ' Backazimuth deg):    ' +
-              str("{:.2f}").format(self.meta.baz))
+                str("{:.2f}").format(self.meta.baz))
         print(" "*ds + ' Incidence (deg):      ' +
-              str("{:.2f}").format(self.meta.inc))
+                str("{:.2f}").format(self.meta.inc))
         print(" "*ds + ' SNR - Q:      ' +
-              str("{:.2f}").format(self.meta.snrq))
+                str("{:.2f}").format(self.meta.snrq))
         print(" "*ds + ' SNR - T:      ' +
-              str("{:.2f}").format(self.meta.snrt))
+                str("{:.2f}").format(self.meta.snrt))
 
         print()
 
@@ -1019,7 +1019,7 @@ class PickPlot(object):
         if not hasattr(self.split, 'RC_res'):
             raise(
                 Exception("analysis has not yet been performed " +
-                          "on split object. Aborting"))
+                            "on split object. Aborting"))
 
         # Make sure to clear figure if it already exists at initialization
         if plt.fignum_exists(1):
@@ -1130,13 +1130,13 @@ class PickPlot(object):
 
             self.axes[1].axvline(time - self.split.meta.ttime, color='k')
             self.axes[1].text(time - self.split.meta.ttime + 5., -1.,
-                              name, rotation=90, ha='center', va='bottom')
+                                name, rotation=90, ha='center', va='bottom')
             self.axes[2].axvline(time - self.split.meta.ttime, color='k')
             self.axes[2].text(time - self.split.meta.ttime + 5., -1.,
-                              name, rotation=90, ha='center', va='bottom')
+                                name, rotation=90, ha='center', va='bottom')
             self.axes[3].axvline(time - self.split.meta.ttime, color='k')
             self.axes[3].text(time - self.split.meta.ttime + 5., -1.,
-                              name, rotation=90, ha='center', va='bottom')
+                                name, rotation=90, ha='center', va='bottom')
 
         # Update plot
         self.axes[0].canvas.draw()
@@ -1294,7 +1294,7 @@ class DiagPlot(object):
         if not hasattr(self.split, 'RC_res'):
             raise(
                 Exception("analysis has not yet been performed on " +
-                          "split object. Aborting"))
+                            "split object. Aborting"))
 
         # Make sure to clear figure if it already exists at initialization
         if plt.fignum_exists(2):
@@ -1427,10 +1427,10 @@ class DiagPlot(object):
 
             # Define rotation matrix
             M = [[np.cos(inc), -np.sin(inc)*np.sin(baz),
-                  -np.sin(inc)*np.cos(baz)],
-                 [np.sin(inc), np.cos(inc)*np.sin(baz),
-                  np.cos(inc)*np.cos(baz)],
-                 [0., -np.cos(baz), np.sin(baz)]]
+                        -np.sin(inc)*np.cos(baz)],
+                    [np.sin(inc), np.cos(inc)*np.sin(baz),
+                        np.cos(inc)*np.cos(baz)],
+                    [0., -np.cos(baz), np.sin(baz)]]
 
             return M
 
@@ -1497,7 +1497,7 @@ class DiagPlot(object):
         ZEN_SC = np.dot(
             np.transpose(M),
             [trL_tmp.data, sc_trQ_c.data,
-             sc_trT_c.data])
+                sc_trT_c.data])
         E_SC = ZEN_SC[1, :]
         N_SC = ZEN_SC[2, :]
 
@@ -1510,9 +1510,9 @@ class DiagPlot(object):
         self.axes[1].plot(taxis, trQ_tmp.data/mmax, 'b--')
         self.axes[1].plot(taxis, trT_tmp.data/mmax, 'r')
         self.axes[1].text(taxis[0], 1, 'Q', verticalalignment='top',
-                          horizontalalignment='left', color='b')
+                            horizontalalignment='left', color='b')
         self.axes[1].text(taxis[0], -1, 'T', verticalalignment='bottom',
-                          horizontalalignment='left', color='r')
+                            horizontalalignment='left', color='r')
 
         # Text box
         self.axes[2].text(
