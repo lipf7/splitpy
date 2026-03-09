@@ -8,7 +8,7 @@
 
 #2025-12-01修改 Added more robust handling of location codes in local event data files
 #不再使用stdb管理本地事件数据文件，改为直接从指定目录读取
-##新增了get_adaptive_sks_window函数，用于自适应地确定SKS波的分析窗口
+##新增了get_fixed_sks_window函数，用于自适应地确定SKS波的分析窗口
 ##2025-12-19 修改：新增了search_best_window_and_filters_and_snr函数，用于在多个过滤器和SNR阈值下搜索最佳窗口和过滤器
 
 import matplotlib
@@ -672,54 +672,30 @@ def load_local_event_data(split, event_dir, station_info, data_format="SAC",
 
 from obspy.taup import TauPyModel
 
-def get_adaptive_sks_window(split):
+def get_fixed_sks_window(split):
     """
-    get_adaptive_sks_window 的 说明
-    
-    根据SKS与S波的时间差，动态调整分析窗口大小。
-    
-    :param split: 
-    输入split对象，包含事件和台站的元数据。
-    Returns:
-    best_t1, best_t2
+    修改为：直接使用SKS震相及其后的20s作为t1与t2
     """
     model = TauPyModel(model="iasp91")
 
     arrivals = model.get_travel_times(
         distance_in_degree=split.meta.gac,
         source_depth_in_km=split.meta.dep,
-        phase_list=["SKS", "S"]
+        phase_list=["SKS"]
     )
 
     t_sks = None
-    t_s_list = []
-
     for a in arrivals:
         if a.name == "SKS":
             t_sks = a.time
-        elif a.name == "S":
-            t_s_list.append(a.time)
+            break
 
     if t_sks is None:
         raise RuntimeError("No SKS arrival")
 
-    dt = np.nan   # 永远先定义
-    if t_s_list and t_sks:
-        t_s = min(t_s_list, key=lambda t: abs(t - t_sks))
-        dt = abs(t_s - t_sks)
-        print(dt)
-        if dt >= 20:
-            half = 20.0
-        else:
-            half = max(dt - 5.0, 15.0)
-    else:
-        half = 25.0
-    if np.isnan(dt):
-        print(f" ##Using fixed half-window of {half} sec (no nearby S phase)")
-    else:
-        print(f" ##Using fixed half-window of {half} sec (SKS-SKKS dt = {dt:.2f} sec)")
+    print(" ##Using fixed window: SKS to SKS + 20 sec")
     t0 = split.meta.time + t_sks
-    return t0 - half, t0 + half
+    return t0, t0 + 20.0
 
 def search_best_window_and_filter(
     split,
@@ -730,34 +706,6 @@ def search_best_window_and_filter(
     snrTlim=3.0,
     snr_comp="R"
 ):
-    """
-    搜索给定基础窗口和平移范围内的最佳分裂参数组合，
-    现在使用数值质量因子 ``Q`` 作为判据代替 SNR。
-
-    ``Q`` 由 :func:`~splitpy.utils.null_quality_factor` 计算，
-    模仿 SplitLab 中的 ``NullCriterion``。返回结果包含最佳
-    Q 值、对应的时间窗口、滤波带以及（仅用于参考）SNR。
-
-    参数
-    ----------
-    split : :class:`~splitpy.classes.Split`
-        已经旋转至 LQT 的分裂对象，包含数据和元数据。
-    base_t1, base_t2 : float
-        基础的窗口起止时间（秒）。
-    filterbands : list
-        [(fmin, fmax), ...] 的频带列表。
-    shift_sec : float, optional
-        从基础窗口开始的偏移范围（秒）。
-    step : float, optional
-        偏移步长（秒）。
-    snr_comp : {'R','T','Q'}
-        仅用于记录的 SNR 分量（径向/横向/总）。
-
-    返回
-    ------
-    dict
-        包含键 ``Q``、``snr``、``t1``、``t2``、``fmin`` 和 ``fmax``。
-    """
     best = {
         "Q": -np.inf,
         "snr": None,
@@ -767,24 +715,37 @@ def search_best_window_and_filter(
         "fmax": None,
     }
 
-    for ishift in np.arange(-shift_sec, shift_sec, step):
-        t1 = base_t1 + ishift
-        t2 = base_t2 + ishift
-        dt = t2 - t1
+    # 预计算所有的时间平移量
+    shifts = np.arange(-shift_sec, shift_sec + step * 0.1, step)
 
-        for fmin, fmax in filterbands:
-            # calculate SNR for bookkeeping
-            split.calc_snr(t1=t1, dt=dt, fmin=fmin, fmax=fmax)
-            snr = split.meta.snrt if snr_comp == "T" else split.meta.snrq
+    # 优化点：外层循环遍历滤波器，内层遍历时间窗口，避免重复执行波形滤波
+    for fmin, fmax in filterbands:
+        
+        # 拷贝 Split 对象与波形流，以供单次频率滤波使用
+        split_temp = copy.copy(split)
+        split_temp.dataLQT = split.dataLQT.copy()
+        
+        # 对该频段预先进行全局滤波
+        for tr in split_temp.dataLQT:
+            tr.detrend('linear').taper(max_percentage=0.05)
+            tr.filter('bandpass', freqmin=fmin, freqmax=fmax, corners=2, zerophase=True)
 
-            # perform a quick splitting analysis to obtain RC/SC results
-            split.analyze(t1=t1, t2=t2, apply_filter=True,
-                            fmin=fmin, fmax=fmax, verbose=False)
+        for ishift in shifts:
+            t1 = base_t1 + ishift
+            t2 = base_t2 + ishift
+            dt = t2 - t1
 
-            # compute numeric quality factor using helper
+            # 计算 SNR (这里不再需要传入 fmin/fmax 让内部重新滤波，而是直接计算)
+            split_temp.calc_snr(t1=t1, dt=dt, fmin=fmin, fmax=fmax)
+            snr = split_temp.meta.snrt if snr_comp == "T" else split_temp.meta.snrq
+
+            # 执行分裂计算：apply_filter=False 因为已经在外部完成滤波，极大地提升了速度
+            split_temp.analyze(t1=t1, t2=t2, apply_filter=False, fmin=fmin, fmax=fmax, verbose=False)
+
+            # 使用 helper 计算 Q 值
             Q = utils.null_quality_factor(
-                split.SC_res.phi, split.RC_res.phi,
-                split.SC_res.dtt, split.RC_res.dtt,
+                split_temp.SC_res.phi, split_temp.RC_res.phi,
+                split_temp.SC_res.dtt, split_temp.RC_res.dtt,
                 snrT=snrTlim)
 
             if abs(Q) > abs(best["Q"]):
@@ -1112,7 +1073,7 @@ def main(args=None):
                     split.rotate(align='LQT')
 
                     # 1. 自适应窗口
-                    base_t1, base_t2 = get_adaptive_sks_window(split)
+                    base_t1, base_t2 = get_fixed_sks_window(split)
                     print(f"Base window: {base_t1 - split.meta.time:.2f} - {base_t2 - split.meta.time:.2f} sec")
                     # 2. 搜索最优窗口 + 滤波
                     best = search_best_window_and_filter(
@@ -1175,7 +1136,7 @@ def main(args=None):
                     # --------------------------------------------------
                     split.rotate(align='LQT')
                     # 1. 自适应窗口
-                    base_t1, base_t2 = get_adaptive_sks_window(split)
+                    base_t1, base_t2 = get_fixed_sks_window(split)
                     print(f"Base window: {base_t1 - split.meta.time:.2f} - {base_t2 - split.meta.time:.2f} sec")
                     
                     # 2. 搜索最优窗口 + 滤波

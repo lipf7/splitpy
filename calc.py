@@ -27,264 +27,143 @@ from numpy.linalg import inv
 
 
 def split_SilverChan(trQ, trT, baz, t1, t2, maxdt, ddt, dphi):
-    """
-    Calculates splitting based on the minimization of energy on 
-    the corrected transverse component (Silver and Chan, 1990)
-
-    Parameters
-    ----------
-    trQ : :class:`~obspy.core.Trace`
-        Radial component seismogram
-    trT : :class:`~obspy.core.Trace`
-        Tangential component seismogram
-    baz : float
-        Back-azimuth - pointing to earthquake from station (degrees)
-    t1 : :class:`~obspy.core.utcdatetime.UTCDateTime`
-        Start time of picking window
-    t2 : :class:`~obspy.core.utcdatetime.UTCDateTime`
-        End time of picking window
-    maxdt : float
-        Maximum delay time considered in grid search (sec)
-    ddt : float
-        Delay time interval in grid search (sec)
-    dphi : float
-        Angular interval in grid search (deg)
-
-    Returns
-    -------
-    Ematrix : :class:`~numpy.ndarray`
-        Matrix of T component energy
-    trQ_c : :class:`~obspy.core.Trace`
-        Trace of corrected radial component of motion
-    trT_c : :class:`~obspy.core.Trace`
-        Trace of corrected tangential component of motion
-    trFast : :class:`~obspy.core.Trace`
-        Trace of corrected fast direction of motion
-    trSlow : :class:`~obspy.core.Trace`
-        Trace of corrected slow direction of motion\
-    phiSC : float
-        Azimuth of fast axis (deg)
-    dttSC : foat
-        Delay time between fast and slow axes (sec)
-    phi_min : float 
-        Azimuth used in plotting routine
-
-    """
-
     phi = np.arange(-90.0, 90.0, dphi)*np.pi/180.
     dtt = np.arange(0., maxdt, ddt)
 
     M = np.zeros((2, 2, len(phi)))
-    M[0, 0, :] = np.cos(phi)
-    M[0, 1, :] = -np.sin(phi)
-    M[1, 0, :] = np.sin(phi)
-    M[1, 1, :] = np.cos(phi)
+    M[0, 0, :] = np.cos(phi); M[0, 1, :] = -np.sin(phi)
+    M[1, 0, :] = np.sin(phi); M[1, 1, :] = np.cos(phi)
 
     Ematrix = np.zeros((len(phi), len(dtt)))
 
-    trQ_tmp = trQ.copy()
-    trT_tmp = trT.copy()
-    trQ_tmp.trim(t1, t2)
-    trT_tmp.trim(t1, t2)
+    trQ_tmp = trQ.copy().trim(t1, t2)
+    trT_tmp = trT.copy().trim(t1, t2)
 
     trQ_tmp.taper(max_percentage=0.1, type='hann')
     trT_tmp.taper(max_percentage=0.1, type='hann')
 
-    # Rotation loop
+    # 预准备波形数据和 FFT 环境
+    q_data = trQ_tmp.data
+    t_data = trT_tmp.data
+    nt = trQ_tmp.stats.npts
+    dt_samp = trQ_tmp.stats.delta
+    freq = np.fft.fftfreq(nt, d=dt_samp)
+
     for p in range(len(phi)):
+        # 应用旋转矩阵测试快慢方向
+        inv_M = inv(np.array(M[:, :, p]))
+        FS_test = np.dot(np.array(M[:, :, p]), np.array([q_data, t_data]))
 
-        # Test fast/slow direction
-        FS_test = np.dot(np.array(M[:, :, p]), np.array(
-            [trQ_tmp.data, trT_tmp.data]))
+        # 只在前向做一次 FFT 即可处理所有的相移计算
+        f0_fft = np.fft.fft(FS_test[0])
+        f1_fft = np.fft.fft(FS_test[1])
 
-        # Compile into traces
-        F0 = Trace(data=np.array(FS_test[0]), header=trQ_tmp.stats)
-        F1 = Trace(data=np.array(FS_test[1]), header=trT_tmp.stats)
-
-        # Time shift loop
         for t in range(len(dtt)):
-
             shift = dtt[t]
-            # Shift by dtt/2. each component (+/-)
-            tmpFast = tshift(F0, -shift/2.)
-            tmpSlow = tshift(F1, shift/2.)
+            
+            # 使用频域相乘直接进行时间平移
+            tmpFast_data = np.real(np.fft.ifft(f0_fft * np.exp(2.*np.pi*1j*freq*(-shift/2.))))
+            tmpSlow_data = np.real(np.fft.ifft(f1_fft * np.exp(2.*np.pi*1j*freq*(shift/2.))))
 
-            # Rotate back to Q and T system
-            corrected_QT = np.dot(
-                inv(np.array(M[:, :, p])), np.array([tmpFast, tmpSlow]))
-            trQ_c = Trace(data=corrected_QT[0], header=trQ_tmp.stats)
-            trT_c = Trace(data=corrected_QT[1], header=trT_tmp.stats)
+            # 旋转回 Q 和 T 坐标系
+            corrected_QT = np.dot(inv_M, np.array([tmpFast_data, tmpSlow_data]))
 
-            #plot_cmp(trQ_c, trT_c,'phi='+str(phi[p]*180./np.pi)+'dt='+str(shift))
-
-            # Energy on transverse component (component 1)
+            # 计算横向能量并记录
             Ematrix[p, t] = np.sum(np.square(corrected_QT[1]))
 
-    # Find indices of minimum value of Energy matrix
+    # 定位能量最小值的索引
     ind = np.where(Ematrix == Ematrix.min())
     ind_phi = ind[0][0]
     ind_dtt = ind[1][0]
 
-    # Get best-fit phi and dt
     shift = dtt[ind_dtt]
     phiSC_min = phi[ind_phi]*180./np.pi
     phiSC = np.mod((phiSC_min + baz), 180.)
 
     if phiSC > 90.:
-        phiSC = phiSC - 180.
+        phiSC -= 180.
 
-    FS_test = np.dot(np.array(M[:, :, ind_phi]),
-                     np.array([trQ_tmp.data, trT_tmp.data]))
+    # 基于最佳解最后一次还原成 Trace 实例，消除内层循环损耗
+    FS_test = np.dot(np.array(M[:, :, ind_phi]), np.array([q_data, t_data]))
+    
+    f0_fft_best = np.fft.fft(FS_test[0])
+    f1_fft_best = np.fft.fft(FS_test[1])
+    
+    tmpFast_best = np.real(np.fft.ifft(f0_fft_best * np.exp(2.*np.pi*1j*freq*(-shift/2.))))
+    tmpSlow_best = np.real(np.fft.ifft(f1_fft_best * np.exp(2.*np.pi*1j*freq*(shift/2.))))
 
-    F0 = Trace(data=FS_test[0], header=trQ_tmp.stats)
-    F1 = Trace(data=FS_test[1], header=trT_tmp.stats)
+    corrected_QT_best = np.dot(inv(np.array(M[:, :, ind_phi])), np.array([tmpFast_best, tmpSlow_best]))
 
-    tmpFast = tshift(F0, -shift/2.)
-    tmpSlow = tshift(F1, shift/2.)
+    trQ_c = Trace(data=corrected_QT_best[0], header=trQ_tmp.stats)
+    trT_c = Trace(data=corrected_QT_best[1], header=trT_tmp.stats)
 
-    corrected_QT = np.dot(
-        inv(np.array(M[:, :, ind_phi])), np.array([tmpFast, tmpSlow]))
+    trFast = Trace(data=tmpFast_best, header=trT_tmp.stats)
+    trSlow = Trace(data=tmpSlow_best, header=trQ_tmp.stats)
 
-    trQ_c = Trace(data=corrected_QT[0], header=trQ_tmp.stats)
-    trT_c = Trace(data=corrected_QT[1], header=trT_tmp.stats)
-
-    trFast = Trace(data=tmpFast, header=trT_tmp.stats)
-    trSlow = Trace(data=tmpSlow, header=trQ_tmp.stats)
-
-    return Ematrix, trQ_c, trT_c, trFast, trSlow, \
-        phiSC, shift, phiSC_min
+    return Ematrix, trQ_c, trT_c, trFast, trSlow, phiSC, shift, phiSC_min
 
 
 def split_RotCorr(trQ, trT, baz, t1, t2, maxdt, ddt, dphi):
-    """
-    Calculates splitting based on the maximum correlation between corrected 
-    radial and tangential components of motion 
-
-    Parameters
-    ----------
-    trQ : :class:`~obspy.core.Trace`
-        Radial component seismogram
-    trT : :class:`~obspy.core.Trace`
-        Tangential component seismogram
-    baz : float
-        Back-azimuth - pointing to earthquake from station (degrees)
-    t1 : :class:`~obspy.core.utcdatetime.UTCDateTime`
-        Start time of picking window
-    t2 : :class:`~obspy.core.utcdatetime.UTCDateTime`
-        End time of picking window
-    maxdt : float
-        Maximum delay time considered in grid search (sec)
-    ddt : float
-        Delay time interval in grid search (sec)
-    dphi : float
-        Angular interval in grid search (deg)
-
-    Returns
-    -------
-    Ematrix : :class:`~numpy.ndarray`
-        Matrix of T component energy
-    trQ_c : :class:`~obspy.core.Trace`
-        Trace of corrected radial component of motion
-    trT_c : :class:`~obspy.core.Trace`
-        Trace of corrected tangential component of motion
-    trFast : :class:`~obspy.core.Trace`
-        Trace of corrected fast direction of motion
-    trSlow : :class:`~obspy.core.Trace`
-        Trace of corrected slow direction of motion\
-    phiSC : float
-        Azimuth of fast axis (deg)
-    dttSC : foat
-        Delay time between fast and slow axes (sec)
-    phi_min : float 
-        Azimuth used in plotting routine
-
-    """
-
     phi = np.arange(-90.0, 90.0, dphi)*np.pi/180.
     dtt = np.arange(0., maxdt, ddt)
 
     M = np.zeros((2, 2, len(phi)))
-    M[0, 0, :] = np.cos(phi)
-    M[0, 1, :] = -np.sin(phi)
-    M[1, 0, :] = np.sin(phi)
-    M[1, 1, :] = np.cos(phi)
+    M[0, 0, :] = np.cos(phi); M[0, 1, :] = -np.sin(phi)
+    M[1, 0, :] = np.sin(phi); M[1, 1, :] = np.cos(phi)
 
     Cmatrix_pos = np.zeros((len(phi), len(dtt)))
     Cmatrix_neg = np.zeros((len(phi), len(dtt)))
 
-    trQ_tmp = trQ.copy()
-    trT_tmp = trT.copy()
-    trQ_tmp.trim(t1, t2)
-    trT_tmp.trim(t1, t2)
-    npts = trQ_tmp.stats.npts
+    trQ_tmp = trQ.copy().trim(t1, t2)
+    trT_tmp = trT.copy().trim(t1, t2)
 
     trQ_tmp.taper(max_percentage=0.1, type='hann')
     trT_tmp.taper(max_percentage=0.1, type='hann')
 
-    # Rotation loop
+    q_data = trQ_tmp.data
+    t_data = trT_tmp.data
+    nt = trQ_tmp.stats.npts
+    dt_samp = trQ_tmp.stats.delta
+    freq = np.fft.fftfreq(nt, d=dt_samp)
+
     for p in range(len(phi)):
+        FS_test = np.dot(np.array(M[:, :, p]), np.array([q_data, t_data]))
 
-        # Test fast/slow direction
-        FS_test = np.dot(np.array(M[:, :, p]), np.array(
-            [trQ_tmp.data, trT_tmp.data]))
-
-        # Compile into traces
-        F0 = Trace(data=np.array(FS_test[0]), header=trQ_tmp.stats)
-        F1 = Trace(data=np.array(FS_test[1]), header=trT_tmp.stats)
-
-        # Cross-correlate Fast with Slow
-        ns0 = np.sum(F0.data*F0.data)
-        ns1 = np.sum(F1.data*F1.data)
+        # 互相关计算
+        ns0 = np.sum(np.square(FS_test[0]))
+        ns1 = np.sum(np.square(FS_test[1]))
         norm = np.sqrt(ns0*ns1)
 
-        cor = Trace(data=np.fft.ifftshift(np.correlate(
-            F0.data, F1.data, mode='same')/norm), header=trQ_tmp.stats)
+        cor_data = np.fft.ifftshift(np.correlate(FS_test[0], FS_test[1], mode='same')/norm)
+        cor_fft = np.fft.fft(cor_data)
 
-        # Time shift loop
         for t in range(len(dtt)):
-
             shift = dtt[t]
-
-            # Shift by dtt each component (+/-)
-            cor_pos = tshift(cor, shift)
-            cor_neg = tshift(cor, -shift)
+            
+            # 使用频域操作一次完成正负平移
+            cor_pos = np.real(np.fft.ifft(cor_fft * np.exp(2.*np.pi*1j*freq*(shift))))
+            cor_neg = np.real(np.fft.ifft(cor_fft * np.exp(2.*np.pi*1j*freq*(-shift))))
+            
             Cmatrix_pos[p, t] = cor_pos[0]
             Cmatrix_neg[p, t] = cor_neg[0]
 
-    # Time shift is positive: fast axis arrives after slow axis
     if abs(Cmatrix_pos).max() > abs(Cmatrix_neg).max():
-
-        # print 'Cmatrix_pos is max'
-
-        ind = np.where(Cmatrix_pos == max(
-            Cmatrix_pos.max(), Cmatrix_pos.min(), key=abs))
-        ind_phi = ind[0][0]
-        ind_dtt = ind[1][0]
-
-        # Get best-fit phi and dt
+        ind = np.where(Cmatrix_pos == max(Cmatrix_pos.max(), Cmatrix_pos.min(), key=abs))
+        ind_phi = ind[0][0]; ind_dtt = ind[1][0]
         dtRC = dtt[ind_dtt]
         phiRC_max = phi[ind_phi]*180./np.pi
         phiRC = np.mod((phiRC_max + baz - 90.), 180.)
         Cmap = Cmatrix_pos
         theta = (phiRC_max - 90.)/180.*np.pi
-
         S = np.sign(max(Cmatrix_pos.max(), Cmatrix_pos.min(), key=abs))
-
-    # Time shift is negative: fast axis arrives before slow axis
     else:
-
-        ind = np.where(Cmatrix_neg == max(
-            Cmatrix_neg.max(), Cmatrix_neg.min(), key=abs))
-        ind_phi = ind[0][0]
-        ind_dtt = ind[1][0]
-
-        # Get best-fit phi and dt
+        ind = np.where(Cmatrix_neg == max(Cmatrix_neg.max(), Cmatrix_neg.min(), key=abs))
+        ind_phi = ind[0][0]; ind_dtt = ind[1][0]
         dtRC = dtt[ind_dtt]
         phiRC_max = phi[ind_phi]*180./np.pi
         phiRC = np.mod((phiRC_max + baz), 180.)
         Cmap = Cmatrix_neg
         theta = (phiRC_max)/180.*np.pi
-
         S = np.sign(max(Cmatrix_neg.max(), Cmatrix_neg.min(), key=abs))
 
     Cmap = Cmap * (-S)
@@ -292,67 +171,30 @@ def split_RotCorr(trQ, trT, baz, t1, t2, maxdt, ddt, dphi):
     theta = theta + np.pi/2.
 
     if phiRC > 90.:
-        phiRC = phiRC - 180.
+        phiRC -= 180.
 
+    # 还原最佳状态生成 Trace 对象
     M2 = np.zeros((2, 2))
-    M2[0, 0] = np.cos(theta)
-    M2[0, 1] = -np.sin(theta)
-    M2[1, 0] = np.sin(theta)
-    M2[1, 1] = np.cos(theta)
+    M2[0, 0] = np.cos(theta); M2[0, 1] = -np.sin(theta)
+    M2[1, 0] = np.sin(theta); M2[1, 1] = np.cos(theta)
 
-    FS_test = np.dot(np.array(M2[:, :]), np.array(
-        [trQ_tmp.data, trT_tmp.data]))
+    FS_test = np.dot(np.array(M2[:, :]), np.array([q_data, t_data]))
+    
+    f0_fft_best = np.fft.fft(FS_test[0])
+    f1_fft_best = np.fft.fft(FS_test[1])
 
-    F0 = Trace(data=FS_test[0], header=trQ_tmp.stats)
-    F1 = Trace(data=FS_test[1], header=trT_tmp.stats)
+    tmpFast_best = np.real(np.fft.ifft(f0_fft_best * np.exp(2.*np.pi*1j*freq*(shift/2.))))
+    tmpSlow_best = np.real(np.fft.ifft(f1_fft_best * np.exp(2.*np.pi*1j*freq*(-shift/2.))))
 
-    tmpFast = tshift(F0, shift/2.)
-    tmpSlow = tshift(F1, -shift/2.)
+    trFast = Trace(data=tmpFast_best, header=trT_tmp.stats)
+    trSlow = Trace(data=tmpSlow_best, header=trQ_tmp.stats)
 
-    trFast = Trace(data=tmpFast, header=trT_tmp.stats)
-    trSlow = Trace(data=tmpSlow, header=trQ_tmp.stats)
-
-    corrected_QT = np.dot(
-        inv(np.array(M2[:, :])), np.array([tmpFast, tmpSlow]))
+    corrected_QT = np.dot(inv(np.array(M2[:, :])), np.array([tmpFast_best, tmpSlow_best]))
 
     trQ_c = Trace(data=corrected_QT[0], header=trQ_tmp.stats)
     trT_c = Trace(data=corrected_QT[1], header=trT_tmp.stats)
 
-    return Cmap, trQ_c, trT_c, trFast, trSlow, \
-        phiRC, dtRC, phiRC_max
-
-
-def tshift(trace, tt):
-    """
-    Shifts a :class:`~obspy.core.Trace` object
-
-    Parameters
-    ----------
-    trace : :class:`~obspy.core.Trace`
-        Seismogram to apply shift
-    tt : float
-        Lag time for shifting 
-
-    Returns
-    -------
-    rtrace: :class:`~obspy.core.Trace`
-        Shifted version of trace
-
-    """
-
-    nt = trace.stats.npts
-    dt = trace.stats.delta
-    freq = np.fft.fftfreq(nt, d=dt)
-
-    ftrace = np.fft.fft(trace.data)
-
-    for i in range(len(freq)):
-        ftrace[i] = ftrace[i]*np.exp(2.*np.pi*1j*freq[i]*tt)
-
-    rtrace = np.real(np.fft.ifft(ftrace))
-
-    return rtrace
-
+    return Cmap, trQ_c, trT_c, trFast, trSlow, phiRC, dtRC, phiRC_max
 
 def split_dof(tr):
     """
