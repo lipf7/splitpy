@@ -787,7 +787,7 @@ def search_best_window_and_filter(
                 split.SC_res.dtt, split.RC_res.dtt,
                 snrTlim=snrTlim)
 
-            if Q > best["Q"]:
+            if abs(Q) > abs(best["Q"]):
                 best.update(
                     Q=Q,
                     snr=snr,
@@ -1313,7 +1313,7 @@ def main(args=None):
                     pickle.dump(split.null, file)
                     pickle.dump(split.quality, file)
                     # newly added numeric quality factor
-                    pickle.dump(getattr(split.meta, 'quality_factor', None), file)
+                    pickle.dump(split.meta.quality_factor, file)
                     pickle.dump(split.meta.best_filter_band, file)
                     file.close()
 
@@ -1322,7 +1322,7 @@ def main(args=None):
                         #if (split.null is False) and (split.quality in ["Good", "Fair"]):
                         if (split.null in [False, True]) and (split.quality in ["Good", "Fair", "Poor"]):
                             dplot = DiagPlot(split)
-                            dplot.plot_diagnostic(t1=best["t1"], t2=best["t2"], f1=best["fmin"], f2=best["fmax"])
+                            dplot.plot_diagnostic(t1=best["t1"], t2=best["t2"], f1=best["fmin"], f2=best["fmax"], Q=split.meta.quality_factor )
                             fig = plt.figure(dplot.axes[0].number)
                             # 仅在非Null且质量为good或fair时保存图片，否则跳过
                             save_root = Path(args.diagplot) / sta.station

@@ -1350,7 +1350,7 @@ class DiagPlot(object):
         # Store handes as attribute
         self.axes = axes
 
-    def plot_diagnostic(self, t1=None, t2=None, f1=0.02, f2=0.2):
+    def plot_diagnostic(self, t1=None, t2=None, f1=0.02, f2=0.2, Q=None):
         """
         Plots diagnostic window with estimates from both 'RC' and 'SC' methods
 
@@ -1360,7 +1360,10 @@ class DiagPlot(object):
             Start time of picking window
         t2 : :class:`~obspy.core.utcdatetime.UTCDateTime`
             End time of picking window
-
+        f1, f2 : float
+            Frequency range used for filtering
+        Q : float or None
+            Null-quality factor value to display (optional)
         """
         import matplotlib
 
@@ -1538,11 +1541,19 @@ class DiagPlot(object):
             str("{:.2f}").format(self.split.SC_res.dtt) + r'$\pm$' +
             str("{:.2f}").format(self.split.SC_res.edtt) +
             's', horizontalalignment='center')
+        info_line = (
+            'Is Null? ' + str(self.split.null) +
+            '    Quality? ' + str(self.split.quality)
+        )
+        if Q is not None:
+            info_line += '    Q={:.2f}'.format(Q)
+        info_line += (
+            '    Filter band: ' + str("{:.2f}").format(self.split.meta.best_filter_band[0]) +
+            ' - ' + str("{:.2f}").format(self.split.meta.best_filter_band[1]) + ' Hz' +
+            '    SNR-Q: ' + str("{:.2f}").format(self.split.meta.snrq)
+        )
         self.axes[2].text(
-            0.5, 0.1, 'Is Null? ' + str(self.split.null) + 
-            '    Quality? ' + str(self.split.quality) +
-            '    Filter band: ' + str("{:.2f}").format(self.split.meta.best_filter_band[0]) + ' - ' + str("{:.2f}").format(self.split.meta.best_filter_band[1]) + ' Hz' +
-            '    SNR-Q: ' + str("{:.2f}").format(self.split.meta.snrq) ,
+            0.5, 0.1, info_line,
             horizontalalignment='center')
 
         # Rotation-correlation

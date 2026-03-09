@@ -1175,7 +1175,7 @@ def main(args=None):
                     if args.diagplot:
                         if (split.null is False) and (split.quality in ["Good", "Fair"]):
                             dplot = DiagPlot(split)
-                            dplot.plot_diagnostic()
+                            dplot.plot_diagnostic(Q=getattr(split.meta,'quality_factor',None))
                             fig = plt.figure(dplot.axes[0].number)
                             # 仅在非Null且质量为good或fair时保存图片，否则跳过
                             save_root = Path(args.diagplot) / sta.station
