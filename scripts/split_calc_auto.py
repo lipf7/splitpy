@@ -698,34 +698,28 @@ def get_fixed_sks_window(split):
     return t0, t0 + 20.0
 
 def search_best_window_and_filter(
-    split,
-    base_t1, base_t2,
-    filterbands,
-    shift_sec=5,
-    step=1.0,
-    snrTlim=3.0,
-    snr_comp="R"
+    split, base_t1, base_t2, filterbands, shift_sec=5, step=1.0, snrTlim=3.0, snr_comp="R"
 ):
     best = {
-        "Q": None,  # <--- 将 -np.inf 改为 None
+        "Q": None,
         "snr": None,
         "t1": None,
         "t2": None,
         "fmin": None,
         "fmax": None,
+        # ===== 新增：用来保存最优的计算结果和波形 =====
+        "RC_res": None,
+        "SC_res": None,
+        "dataLQT": None 
     }
 
-    # 预计算所有的时间平移量
     shifts = np.arange(-shift_sec, shift_sec + step * 0.1, step)
 
-    # 优化点：外层循环遍历滤波器，内层遍历时间窗口，避免重复执行波形滤波
     for fmin, fmax in filterbands:
-        
-        # 拷贝 Split 对象与波形流，以供单次频率滤波使用
         split_temp = copy.copy(split)
+        # 深拷贝波形，避免污染原数据
         split_temp.dataLQT = split.dataLQT.copy()
         
-        # 对该频段预先进行全局滤波
         for tr in split_temp.dataLQT:
             tr.detrend('linear').taper(max_percentage=0.05)
             tr.filter('bandpass', freqmin=fmin, freqmax=fmax, corners=2, zerophase=True)
@@ -735,20 +729,16 @@ def search_best_window_and_filter(
             t2 = base_t2 + ishift
             dt = t2 - t1
 
-            # 计算 SNR (这里不再需要传入 fmin/fmax 让内部重新滤波，而是直接计算)
             split_temp.calc_snr(t1=t1, dt=dt, fmin=fmin, fmax=fmax)
             snr = split_temp.meta.snrt if snr_comp == "T" else split_temp.meta.snrq
 
-            # 执行分裂计算：apply_filter=False 因为已经在外部完成滤波，极大地提升了速度
             split_temp.analyze(t1=t1, t2=t2, apply_filter=False, fmin=fmin, fmax=fmax, verbose=False)
 
-            # 使用 helper 计算 Q 值
             Q = utils.null_quality_factor(
                 split_temp.SC_res.phi, split_temp.RC_res.phi,
                 split_temp.SC_res.dtt, split_temp.RC_res.dtt,
                 snrT=snrTlim)
 
-            # <--- 修复判断逻辑：如果是第一次循环（None）或者绝对值更大，则更新
             if best["Q"] is None or abs(Q) > abs(best["Q"]):
                 best.update(
                     Q=Q,
@@ -757,16 +747,19 @@ def search_best_window_and_filter(
                     t2=t2,
                     fmin=fmin,
                     fmax=fmax,
+                    # ===== 新增：把最优解直接存下来 =====
+                    RC_res=copy.deepcopy(split_temp.RC_res),
+                    SC_res=copy.deepcopy(split_temp.SC_res),
+                    dataLQT=split_temp.dataLQT.copy()
                 )
-                
-            # 实时打印：因为初始值改成了 None，这里的安全检查也稍微调整一下
+            
+            # 实时打印（保持之前的逻辑）
             curr_best_q = best['Q'] if best['Q'] is not None else np.nan
             curr_best_snr = best['snr'] if best['snr'] is not None else np.nan
             curr_best_fmin = best['fmin'] if best['fmin'] is not None else np.nan
             curr_best_fmax = best['fmax'] if best['fmax'] is not None else np.nan
-            
             print(f"  Shift {ishift:+.1f}s, Filter {fmin:.2f}-{fmax:.2f}Hz | Current: Q={Q:.3f}, SNR={snr:.1f}dB | BEST SO FAR: Q={curr_best_q:.3f}, Filter={curr_best_fmin:.2f}-{curr_best_fmax:.2f}Hz, SNR={curr_best_snr:.1f}dB")
-            
+
     return best
 
 
@@ -1224,53 +1217,35 @@ def main(args=None):
                     print("* SNRT: {}".format(split.meta.snrt))
 
                 if args.calc or args.recalc:
-                    dt_late = best["t2"] - best["t1"]
-                    if dt_late == 40.0:
-                        best["t1"] += 15.0
-                    else:
-                        # 计算窗口长度（秒）
-                        dt_win = best["t2"] - best["t1"]   # float, seconds
-
-                        # 窗口中点（UTCDateTime）
-                        t_mid = best["t1"] + 0.5 * dt_win
-
-                        # 新窗口（前 5 秒）
-                        best["t1"] = t_mid - 5.0
-                    
-                    time1 = best["t1"] - split.meta.time
-                    time2 = best["t2"] - split.meta.time
-                    print("analyze time window: {0:.2f} - {1:.2f} sec".format(
-                        time1, time2))
-                    #4. 用最优参数做分裂计算
-                    split.analyze(
-                        t1=best["t1"],
-                        t2=best["t2"],
-                        apply_filter=True,
-                        fmin=best["fmin"],
-                        fmax=best["fmax"],
-                        verbose=args.verb
-                    )
+                    # =========================================================
+                    # 彻底删除原版中奇怪的 dt_late == 40.0 和 best["t1"] = t_mid - 5.0 的修改逻辑
+                    # 彻底删除重复的 split.analyze(...) 调用
+                    # 直接把之前循环里保存的“最优成果”赋值给 split 对象！
+                    # =========================================================
+                    if best.get("RC_res") is not None:
+                        split.RC_res = best["RC_res"]
+                        split.SC_res = best["SC_res"]
+                        split.dataLQT = best["dataLQT"] # 应用最佳滤波的波形供后续绘图使用
+                        
+                        # 补齐分析窗口参数，供绘图时读取
+                        split.analysis_cfg["t1"] = best["t1"]
+                        split.analysis_cfg["t2"] = best["t2"]
+                        split.analysis_cfg["fmin"] = best["fmin"]
+                        split.analysis_cfg["fmax"] = best["fmax"]
 
                     # Continue if problem with analysis
-                    if split.RC_res.edtt is None or split.SC_res.edtt is None:
+                    if not hasattr(split, 'RC_res') or split.RC_res.edtt is None or split.SC_res.edtt is None:
                         if args.verb:
                             print("* !!! DOF Error. --> Skipping...")
                             print("*"*50)
                         continue
 
-                    # Determine if Null and Quality of estimate
+                    # 重新评估 null 和 quality（这部分计算极快，仅用来出评级）
                     split.is_null(args.snrTlim, verbose=args.verb)
                     split.get_quality(verbose=args.verb)
 
-                    # also compute numeric quality factor and store it
-                    try:
-                        qval = utils.null_quality_factor(
-                            split.SC_res.phi, split.RC_res.phi,
-                            split.SC_res.dtt, split.RC_res.dtt,
-                            snrT=args.snrTlim)
-                    except Exception:
-                        qval = None
-                    split.meta.quality_factor = qval
+                    # 再次写入 meta 中
+                    split.meta.quality_factor = best.get("Q")
 
                 # Display results
                 if args.verb:

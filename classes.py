@@ -575,33 +575,32 @@ class Split(object):
 
     def calc_snr(self, t1=None, dt=30., fmin=0.02, fmax=0.5):
         """
-        Calculates signal-to-noise ratio on either Z, L or P component
+        计算信号窗口内的信噪比，采用 MATLAB (SplitLab / Restivo & Helffrich, 1998) 的定义:
+        SNR = max(abs(Signal)) / (2 * std(Noise))
 
         Parameters
         ----------
         t1 : :class:`~obspy.core.utcdatetime.UTCDateTime`
-            Pick time of arrival (sec)
+            Pick time of arrival / 信号窗口开始时间 (sec)
         dt : float
-            Duration (sec)
+            Duration / 信号窗口长度 (sec) (对应 t2 - t1)
         fmin : float
             Minimum frequency corner for SNR filter (Hz)
         fmax : float
             Maximum frequency corner for SNR filter (Hz)
-
-        Attributes
-        ----------
-        snrq : float
-            Signal-to-noise ratio on vertical component (dB)
-        snrh : float
-            Signal-to-noise ratio on radial component (dB)
-
         """
-
         if not self.meta.accept:
             return
 
         if t1 is None:
             t1 = self.meta.time + self.meta.ttime
+
+        # 信号窗口为 t1 到 t2 (t1 + dt)
+        t2 = t1 + dt
+        
+        # 噪声窗口选在信号窗口之前，长度相同
+        noise_t1 = t1 - dt
+        noise_t2 = t1
 
         # Copy trace to signal and noise traces
         trSigQ = self.dataLQT.select(component='Q')[0].copy()
@@ -614,30 +613,33 @@ class Split(object):
         trSigT.detrend(type='linear').taper(max_percentage=0.05)
         trNzeT.detrend(type='linear').taper(max_percentage=0.05)
 
-        # Filter between 0.1 and 1.0 (dominant P wave frequencies)
-        trSigQ.filter('bandpass', freqmin=fmin, freqmax=fmax,
-                      corners=2, zerophase=True)
-        trSigT.filter('bandpass', freqmin=fmin, freqmax=fmax,
-                      corners=2, zerophase=True)
-        trNzeQ.filter('bandpass', freqmin=fmin, freqmax=fmax,
-                      corners=2, zerophase=True)
-        trNzeT.filter('bandpass', freqmin=fmin, freqmax=fmax,
-                      corners=2, zerophase=True)
+        # 频段滤波 (如果在自动脚本里已经全局滤波，这里是冗余但安全的双保险)
+        if fmin and fmax:
+            trSigQ.filter('bandpass', freqmin=fmin, freqmax=fmax, corners=2, zerophase=True)
+            trSigT.filter('bandpass', freqmin=fmin, freqmax=fmax, corners=2, zerophase=True)
+            trNzeQ.filter('bandpass', freqmin=fmin, freqmax=fmax, corners=2, zerophase=True)
+            trNzeT.filter('bandpass', freqmin=fmin, freqmax=fmax, corners=2, zerophase=True)
 
-        # Trim around S-wave arrival
-        trSigQ.trim(t1 + dt / 2, t1 + dt)
-        trNzeQ.trim(t1 , t1 + dt / 2)
-        trSigT.trim(t1 + dt / 2, t1 + dt)
-        trNzeT.trim(t1 , t1 + dt / 2)
+        # 截取正确的信号窗口 (t1 到 t2)
+        trSigQ.trim(t1, t2)
+        trSigT.trim(t1, t2)
+        
+        # 截取正确的噪声窗口 (noise_t1 到 noise_t2)
+        trNzeQ.trim(noise_t1, noise_t2)
+        trNzeT.trim(noise_t1, noise_t2)
 
-        # Calculate root mean square (RMS) and SNR
-        srms = np.sqrt(np.mean(np.square(trSigQ.data)))
-        nrms = np.sqrt(np.mean(np.square(trNzeQ.data)))
-        self.meta.snrq = 10*np.log10(srms*srms/nrms/nrms)
+        # ==========================================
+        # 采用 MATLAB / Restivo & Helffrich (1998) 公式：
+        # SNR = max(abs(Signal)) / (2 * std(Noise))
+        # ==========================================
+        
+        # 计算 Q 分量 (径向) SNR
+        std_nze_q = np.std(trNzeQ.data)
+        self.meta.snrq = np.max(np.abs(trSigQ.data)) / (2 * std_nze_q) if std_nze_q != 0 else 0.0
 
-        srms = np.sqrt(np.mean(np.square(trSigT.data)))
-        nrms = np.sqrt(np.mean(np.square(trNzeT.data)))
-        self.meta.snrt = 10*np.log10(srms*srms/nrms/nrms)
+        # 计算 T 分量 (切向) SNR
+        std_nze_t = np.std(trNzeT.data)
+        self.meta.snrt = np.max(np.abs(trSigT.data)) / (2 * std_nze_t) if std_nze_t != 0 else 0.0
 
     def analyze(self, t1=None, t2=None, verbose=False,
             apply_filter=False, fmin=None, fmax=None):
