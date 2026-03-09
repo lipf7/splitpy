@@ -249,11 +249,18 @@ def null_quality_factor(phiSC, phiRC, dtSC, dtRC, snrT=None):
     Dist1 = np.sqrt(X**2 + (Y - 1) ** 2) / np.sqrt(0.5)
     Dist2 = np.sqrt((X - 1) ** 2 + Y**2) / np.sqrt(0.5)
 
-    # select the smaller distance and assign sign accordingly
+    # ================= 新增修复逻辑 =================
+    # 获取最小距离并限制最大值为 1.0，完全等价于 MATLAB 的 D(D>1)=1
+    min_dist = min(Dist1, Dist2)
+    if min_dist > 1.0:
+        min_dist = 1.0
+    # ================================================
+
+    # 根据距离分配符号
     if Dist1 < Dist2:
-        Q = -1.0 * (1.0 - Dist1)
+        Q = -1.0 * (1.0 - min_dist)
     else:
-        Q = 1.0 * (1.0 - Dist2)
+        Q = 1.0 * (1.0 - min_dist)
 
     if snrT is not None and snrT < 3:
         Q = 0.0
