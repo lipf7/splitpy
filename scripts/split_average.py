@@ -641,27 +641,40 @@ def main(args=None):
 
         # Write out events
         fid = open(outev, 'w')
+        # 1. 更新表头，加入 eq_Baz (deg) 和 quality
         fid.writelines(
-            "eq_time (UTC), eq_lon, eq_lat, eq_mag, "
+            "eq_time (UTC), eq_lon, eq_lat, eq_mag, eq_Baz (deg), "
             "PHI_RC (deg), dPHI_RC (deg), DT_RC (s), dDT_RC (s), "
             "PHI_SC (deg), dPHI_SC (deg), DT_SC (s), dDT_SC (s), "
-            "fmin (Hz), fmax (Hz), Q\n")
+            "fmin (Hz), fmax (Hz), Q, quality\n")
+            
         for i in range(len(evlon)):
-            line1 = "{0},{1:8.4f},{2:7.4f},{3:3.1f},".format(
-                    evtime[i], evlon[i], evlat[i], evmag[i])
+            # 2. 在 line1 中增加反方位角 baz[i] 的输出
+            line1 = "{0},{1:8.4f},{2:7.4f},{3:3.1f},{4:7.2f},".format(
+                    evtime[i], evlon[i], evlat[i], evmag[i], baz[i])
             line2 = "{0:7.3f},{1:7.3f},{2:5.3f},{3:5.3f},".format(
                     phiRC[i], DphiRC[i], dtRC[i], DdtRC[i])
             line3 = "{0:7.3f},{1:7.3f},{2:5.3f},{3:5.3f},".format(
                     phiSC[i], DphiSC[i], dtSC[i], DdtSC[i])
+            
             # 处理滤波频段（兼容 None）
             if filter_band[i] is None:
                 fmin, fmax = np.nan, np.nan
             else:
                 fmin, fmax = filter_band[i]
             line4 = "{0:.3f},{1:.3f},".format(fmin, fmax)
+            
             # 处理 Q 值（兼容 None）
             q_val = quality_factor_list[i] if quality_factor_list[i] is not None else np.nan
-            line5 = "{0:.3f}\n".format(q_val)
+            
+            # 3. 组合 quality 和 null 状态
+            qual_str = Qual[i]
+            if Null[i]:  # 如果为 Null，则在 Good/Fair/Poor 后追加 "Null"
+                qual_str += "Null"
+                
+            # 将 Q 和组合好的 quality 格式化到 line5
+            line5 = "{0:.3f},{1}\n".format(q_val, qual_str)
+            
             fid.writelines(
                 line1.replace(" ", "") +
                 line2.replace(" ", "") +

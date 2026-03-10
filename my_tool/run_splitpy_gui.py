@@ -77,7 +77,7 @@ class SplitGUI(tk.Tk):
                 Param("Sampling rate (Hz)", "--sampling-rate", "10"),  # 采样率（Hz）
                 Param("Window (s)", "--window", "120"),  # 窗口长度（秒）
                 Param("Min SNRQ", "--min-snr", "4"),  # 最小径向分量SNR（用于参考阈值）
-                Param("SNRT threshold", "--snrT", "1"),  # 横向分量SNR阈值（用于空解判断）和Q值计算控制
+                Param("SNRT threshold", "--snrT", "1"),  # 横向分量SNR阈值（用于空解判断）
                 Param("Max delay (s)", "--max-delay", "4"),  # 最大延迟时间（秒）
                 Param("DT delay (s)", "--dt-delay", "0.1"),  # 延迟时间增量（秒）
                 Param("Dphi (deg)", "--dphi", "1"),  # 快速轴角度增量（度）
