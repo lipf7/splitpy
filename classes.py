@@ -1352,7 +1352,7 @@ class DiagPlot(object):
         # Store handes as attribute
         self.axes = axes
 
-    def plot_diagnostic(self, t1=None, t2=None, f1=0.02, f2=0.2, Q=None):
+    def plot_diagnostic(self, t1=None, t2=None, f1=None, f2=None, Q=None):
         """
         Plots diagnostic window with estimates from both 'RC' and 'SC' methods
 
@@ -1585,23 +1585,15 @@ class DiagPlot(object):
         self.axes[4].plot(taxis, rc_trQ_c.data/mmax, 'b--')
         self.axes[4].plot(taxis, rc_trT_c.data/mmax, 'r')
 
-        # Particle motion - 旋转粒子轨迹，使径向与快波方向重合
-        # 旋转角度为 phi - baz - 180，归一化到-180到180
-        rc_rotation_angle = normalize_angle(self.split.RC_res.phi - self.split.meta.baz - 180.)
+        # Particle motion - 顺时针旋转粒子轨迹，使径向与快波方向 phi 重合
+        rc_rotation_angle = normalize_angle(self.split.meta.baz - self.split.RC_res.phi)
         trE_tmp_rot, trN_tmp_rot = rotate_2d_data(trE_tmp.data/mmax, trN_tmp.data/mmax, rc_rotation_angle)
         E_RC_rot, N_RC_rot = rotate_2d_data(E_RC/mmax, N_RC/mmax, rc_rotation_angle)
         
-        # 黑线绘制快波方向phi（在旋转后的坐标系中）
-        # 旋转后径向与快波方向重合，快波方向应该沿y轴正方向（90度）
+        # 黑线直接绘制在旋转前的快波方向 phi（即旋转后的 baz 方向）
         phi_rad = self.split.RC_res.phi * np.pi / 180.
-        x_phi_pos = np.sin(phi_rad)
-        y_phi_pos = np.cos(phi_rad)
-        x_phi_neg = -x_phi_pos
-        y_phi_neg = -y_phi_pos
-        
-        # 应用旋转到快波方向线
-        x_phi_pos_rot, y_phi_pos_rot = rotate_2d_data(x_phi_pos, y_phi_pos, rc_rotation_angle)
-        x_phi_neg_rot, y_phi_neg_rot = rotate_2d_data(x_phi_neg, y_phi_neg, rc_rotation_angle)
+        x_phi = np.sin(phi_rad)
+        y_phi = np.cos(phi_rad)
         
         self.axes[5].plot(trE_tmp_rot, trN_tmp_rot, 'b--')
         self.axes[5].plot(E_RC_rot, N_RC_rot, 'r')
@@ -1609,7 +1601,8 @@ class DiagPlot(object):
                           horizontalalignment='left', color='b')
         self.axes[5].text(-1, -1, 'RC', verticalalignment='bottom',
                           horizontalalignment='left', color='r')
-        self.axes[5].plot([x_phi_pos_rot, x_phi_neg_rot], [y_phi_pos_rot, y_phi_neg_rot], 'k:', lw=2)
+        # 黑线不再参与 rotate_2d_data 旋转
+        self.axes[5].plot([x_phi, -x_phi], [y_phi, -y_phi], 'k:', lw=2)
 
         # Map of energy
         plt.sca(self.axes[6])
@@ -1660,26 +1653,19 @@ class DiagPlot(object):
         self.axes[8].plot(taxis, sc_trQ_c.data/mmax, 'b--')
         self.axes[8].plot(taxis, sc_trT_c.data/mmax, 'r')
 
-        # Particle motion - 旋转粒子轨迹，使径向与快波方向重合
-        # 旋转角度为 phi - baz - 180，归一化到-180到180
-        sc_rotation_angle = normalize_angle(self.split.SC_res.phi - self.split.meta.baz - 180.)
+        # Particle motion - 顺时针旋转粒子轨迹，使径向与快波方向 phi 重合
+        sc_rotation_angle = normalize_angle(self.split.meta.baz - self.split.SC_res.phi)
         trE_tmp_rot_sc, trN_tmp_rot_sc = rotate_2d_data(trE_tmp.data/mmax, trN_tmp.data/mmax, sc_rotation_angle)
         E_SC_rot, N_SC_rot = rotate_2d_data(E_SC/mmax, N_SC/mmax, sc_rotation_angle)
         
-        # 黑线绘制快波方向phi（在旋转后的坐标系中）
+        # 黑线直接绘制在旋转前的快波方向 phi
         phi_rad_sc = self.split.SC_res.phi * np.pi / 180.
-        x_phi_pos_sc = np.sin(phi_rad_sc)
-        y_phi_pos_sc = np.cos(phi_rad_sc)
-        x_phi_neg_sc = -x_phi_pos_sc
-        y_phi_neg_sc = -y_phi_pos_sc
-        
-        # 应用旋转到快波方向线
-        x_phi_pos_rot_sc, y_phi_pos_rot_sc = rotate_2d_data(x_phi_pos_sc, y_phi_pos_sc, sc_rotation_angle)
-        x_phi_neg_rot_sc, y_phi_neg_rot_sc = rotate_2d_data(x_phi_neg_sc, y_phi_neg_sc, sc_rotation_angle)
+        x_phi_sc = np.sin(phi_rad_sc)
+        y_phi_sc = np.cos(phi_rad_sc)
         
         self.axes[9].plot(trE_tmp_rot_sc, trN_tmp_rot_sc, 'b--')
         self.axes[9].plot(E_SC_rot, N_SC_rot, 'r')
-        self.axes[9].plot([x_phi_pos_rot_sc, x_phi_neg_rot_sc], [y_phi_pos_rot_sc, y_phi_neg_rot_sc], 'k:', lw=2)
+        self.axes[9].plot([x_phi_sc, -x_phi_sc], [y_phi_sc, -y_phi_sc], 'k:', lw=2)
         self.axes[9].text(-1, 1, 'Raw', verticalalignment='top',
                           horizontalalignment='left', color='b')
         self.axes[9].text(-1, -1, 'SC', verticalalignment='bottom',
