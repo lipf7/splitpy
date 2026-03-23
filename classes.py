@@ -628,6 +628,11 @@ class Split(object):
         trNzeQ.trim(noise_t1, noise_t2)
         trNzeT.trim(noise_t1, noise_t2)
 
+        if (trSigQ.stats.npts == 0 or trSigT.stats.npts == 0 or
+            trNzeQ.stats.npts == 0 or trNzeT.stats.npts == 0):
+            self.meta.snrq = 0.0
+            self.meta.snrt = 0.0
+            return
         # ==========================================
         # 采用 MATLAB / Restivo & Helffrich (1998) 公式：
         # SNR = max(abs(Signal)) / (2 * std(Noise))
@@ -685,6 +690,14 @@ class Split(object):
         # SNR 阶段只“试滤波”,分裂阶段“正式滤波一次”
         trQ = self.dataLQT.select(component='Q')[0].copy().detrend(type='linear').taper(max_percentage=0.05)
         trT = self.dataLQT.select(component='T')[0].copy().detrend(type='linear').taper(max_percentage=0.05)
+
+        # 修剪到 t1-t2
+        trQ.trim(t1, t2)
+        trT.trim(t1, t2)
+        if trQ.stats.npts == 0 or trT.stats.npts == 0:
+            if verbose:
+                print("Warning: No data in analysis window.")
+            return  # 或者设置错误标志
 
         if apply_filter and fmin and fmax:
             trQ.filter("bandpass", freqmin=fmin, freqmax=fmax,

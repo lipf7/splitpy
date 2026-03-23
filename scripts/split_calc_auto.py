@@ -731,6 +731,11 @@ def search_best_window_and_filter(
 
             split_temp.calc_snr(t1=t1, dt=dt, fmin=fmin, fmax=fmax)
             snr = split_temp.meta.snrt if snr_comp == "T" else split_temp.meta.snrq
+            
+            # 跳过无效 SNR 的窗口
+            if snr <= 0 or np.isnan(snr):
+                continue
+            
             split_temp.analyze(t1=t1, t2=t2, apply_filter=False, fmin=fmin, fmax=fmax, verbose=False)
 
             Q = utils.null_quality_factor(
