@@ -1091,6 +1091,11 @@ def main(args=None):
                         snrTlim=args.snrTlim,
                         snr_comp="Q"  # component only used for bookkeeping
                     )
+                    
+                    # 检查是否找到有效组合
+                    if best["fmin"] is None or best["fmax"] is None:
+                        print("WARNING: No valid filter/window combination found for this event/station.")
+                        continue   # 跳过当前事件                    
 
                     # 3. 记录质量因子和（参考）SNR
                     split.analysis_cfg["quality_factor"] = best.get("Q")
@@ -1155,6 +1160,13 @@ def main(args=None):
                         snrTlim=args.snrTlim,
                         snr_comp="R"  # only for logging
                     )
+                    
+                    if best["fmin"] is None or best["fmax"] is None:
+                        if args.verb:
+                            print("* No valid parameter set found for any filter band")
+                            print("*" * 50)
+                        continue
+                    
                     # Safely extract values, replacing explicit None with np.nan for float formatting
                     best_q = best.get('Q') if best.get('Q') not in (None, -np.inf) else np.nan
                     best_snr = best.get('snr') if best.get('snr') is not None else np.nan
@@ -1164,20 +1176,11 @@ def main(args=None):
                     print("*"*50)
                     print(f"Best Q: {best_q:.2f}, SNRR: {best_snr:.2f}, Filter: {best_fmin:.2f}-{best_fmax:.2f} Hz")
                     
-                    if best is None or best.get("fmin") is None or best.get("fmax") is None:
-                        print("WARNING: No valid filter band selected for this event/station.")
-                        best = {
-                            "fmin": np.nan,
-                            "fmax": np.nan,
-                            "Q": np.nan,
-                            "snr": np.nan,
-                            "result": None
-                        }
                     if args.verb:
                         print(
-                            f"* Best filter band: {best['fmin']:.2f}-{best['fmax']:.2f} Hz "
-                            f"* Best window: {best['t1'] - split.meta.time:.2f} - {best['t2'] - split.meta.time:.2f} sec "
-                            f"(Q = {best.get('Q',np.nan):.2f}, SNRQ = {best.get('snr',np.nan):.2f})"
+                            f"* Best filter band: {best.get('fmin', np.nan):.2f}-{best.get('fmax', np.nan):.2f} Hz "
+                            f"* Best window: {best.get('t1', split.meta.time + split.meta.ttime) - split.meta.time:.2f} - {best.get('t2', split.meta.time + split.meta.ttime + 20) - split.meta.time:.2f} sec "
+                            f"(Q = {best.get('Q', np.nan):.2f}, SNRQ = {best.get('snr', np.nan):.2f})"
                         )
 
                     # 3. 记录质量因子和参考 SNR
